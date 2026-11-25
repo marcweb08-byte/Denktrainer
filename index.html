@@ -155,6 +155,8 @@ const $=id=>document.getElementById(id);
 const li=a=>Array.isArray(a)&&a.length?`<ul>${a.map(x=>`<li>${esc(typeof x==='object'?Object.values(x).join(' · '):x)}</li>`).join('')}</ul>`:'';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 let view=locked?'lock':'heute',busy={},coachMode='frage';
+let canStore=true;try{localStorage.setItem('dt_t','1');localStorage.removeItem('dt_t')}catch(e){canStore=false}
+const storeWarn=()=>canStore?'':`<div class="card" style="border-color:var(--bad)"><b style="color:var(--bad)">Speichern ist blockiert.</b><p>Dein Browser lässt die App nichts speichern: Key, Lernpfade und Ergebnisse gehen beim Schließen verloren. Ursache: privater Modus oder „Alle Cookies blockieren“ (iPhone-Einstellungen → Apps → Safari). Ausschalten und die App neu öffnen.</p></div>`;
 const topErr=n=>Object.entries(S.err).filter(([,e])=>!e.done).sort((a,b)=>b[1].n/(1+daysBetween(b[1].last,today())/14)-a[1].n/(1+daysBetween(a[1].last,today())/14)).slice(0,n);
 const modName=x=>x.mod==='pfad'?'LERNPFAD: '+(S.paths.find(p=>p.id===x.pfad)?.titel||'Ziel'):(MOD[x.mod]?.n||'');
 const planCtx=()=>S.plan?`\nLernplan-Ziele: ${(S.plan.ziele||[]).map(z=>z.ziel||z).slice(0,4).join('; ')}`:'';
@@ -162,9 +164,10 @@ const pathCtx=()=>S.paths.length?`\nLernpfade (Maßstab sind echte Experten): ${
 const prof=()=>`Nutzer: ${S.set.name}, ${S.set.about}\nZiele: ${S.goals}${pathCtx()}${S.profil?`\nLernerprofil (wie er lernt, Stärken, Schwächen): ${S.profil}`:''}${topErr(5).length?`\nWiederkehrende Fehler: ${topErr(5).map(([k,e])=>`${k} (${e.n}×)`).join('; ')}`:''}${planCtx()}`;
 
 /* ================= KI ================= */
-function parseJ(c){c=String(c).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```(json)?/g,'');const a=c.indexOf('{'),b=c.lastIndexOf('}');if(a<0)throw new Error('Keine gültige Antwort vom Modell. Nochmal versuchen.');return JSON.parse(c.slice(a,b+1))}
+function fixJ(t){let o='',q=false,e=false;for(const ch of t){if(q){if(e){e=false;o+=ch;continue}if(ch==='\\'){e=true;o+=ch;continue}if(ch==='"'){q=false;o+=ch;continue}if(ch==='\n'){o+='\\n';continue}if(ch==='\r')continue;if(ch==='\t'){o+='\\t';continue}o+=ch}else{if(ch==='"')q=true;o+=ch}}return o.replace(/,\s*([}\]])/g,'$1')}
+function parseJ(c){c=String(c).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```(json)?/g,'');const a=c.indexOf('{'),b=c.lastIndexOf('}');if(a<0||b<a)throw new Error('BADJSON');const t=c.slice(a,b+1);try{return JSON.parse(t)}catch(e){try{return JSON.parse(fixJ(t))}catch(e2){throw new Error('BADJSON')}}}
 let lastCall=0;
-async function ai(sys,msgs,json=true){
+async function ai(sys,msgs,json=true,retry=false){
   const s=S.set;
   if(!s.base||!s.model)throw new Error('API-Adresse und Modell unter Einstellungen eintragen.');
   if(!s.key)throw new Error('Kein API-Key. Unter Einstellungen eintragen (Groq: console.groq.com, Gemini: aistudio.google.com).');
@@ -190,7 +193,10 @@ async function ai(sys,msgs,json=true){
   if([500,502,503,504].includes(r.status))throw new Error('Die KI ist gerade überlastet (Fehler '+r.status+'). In ein paar Minuten nochmal versuchen.');
   if(!r.ok)throw new Error('Fehler '+r.status+': '+(await r.text()).slice(0,240));
   const c=(await r.json()).choices?.[0]?.message?.content||'';
-  return json?parseJ(c):c.replace(/<think>[\s\S]*?<\/think>/g,'').trim();
+  if(!json)return c.replace(/<think>[\s\S]*?<\/think>/g,'').trim();
+  try{return parseJ(c)}catch(e){
+    if(!retry)return ai(sys,[...msgs,{role:'assistant',content:c.slice(0,2000)},{role:'user',content:'Das war kein gültiges JSON. Gib dieselbe Antwort nochmal, ausschließlich als gültiges JSON ohne Text davor oder danach, kürzer formuliert.'}],true,true);
+    throw new Error('Die KI hat eine unlesbare Antwort geliefert. Bitte nochmal versuchen.')}
 }
 const sysTrainer=per=>`Du bist ein anspruchsvoller persönlicher Trainer für logisches Denken, Sprache, Rhetorik und soziale Kompetenz. Ziel ist der größtmögliche echte Fortschritt. ${PRIO}
 ${prof()}
@@ -303,7 +309,7 @@ async function makePath(f){
   const sys=`Du bist Lerndesigner und Experte für Expertise-Forschung (Deliberate Practice, Transfer, Lernpsychologie). Du analysierst, was echte Spitzenkönner in einem Gebiet konkret anders und besser machen, und baust daraus einen Lernpfad mit echtem Fachwissen aus Forschung, Fachliteratur und Praxis der Profis, nicht mit Allgemeinplätzen. Übersetze Vorbilder aus Filmen oder Serien in reale Berufe und Fähigkeiten. Trenne ehrlich, was belegt ist und was Mythos ist. Erfinde keine Quellen: Bist du bei einem Titel unsicher, nenne Forscher oder Fachgebiet. ${PRIO}
 ${prof()}
 Antworte ausschließlich mit gültigem JSON auf Deutsch.`;
-  const user=`Ziel: ${f.ziel}\nVorbild bzw. so gut wie: ${f.vorbild||'nicht angegeben'}\nWofür: ${f.wofuer||'nicht angegeben'}\nWie gut, bis wann: ${f.niveau||'nicht angegeben'}\n\nFormat:\n{"titel":"kurzer Name","rolle":"reale Expertenrolle(n) als Maßstab","kern":"was diese Experten wirklich besser können, 2-3 Sätze","faehigkeiten":["konkrete Teilfähigkeiten"],"bausteine":[{"titel":"Technik, Methode oder Wissensbaustein","inhalt":"1 Satz","quelle":"Studie, Forscher, Buch oder Praxis","evidenz":"stark|mittel|schwach|umstritten"}],"mythen":["was oft behauptet wird, aber nicht stimmt"],"uebungen":["Übungsformen, die nachweislich wirken"],"meilensteine":[{"wann":"z. B. nach 4 Wochen","messbar":"woran erkennbar"}]}\n15 bis 25 Bausteine, vom Fundament zum Profi-Niveau sortiert.`;
+  const user=`Ziel: ${f.ziel}\nVorbild bzw. so gut wie: ${f.vorbild||'nicht angegeben'}\nWofür: ${f.wofuer||'nicht angegeben'}\nWie gut, bis wann: ${f.niveau||'nicht angegeben'}\n\nFormat:\n{"titel":"kurzer Name","rolle":"reale Expertenrolle(n) als Maßstab","kern":"was diese Experten wirklich besser können, 2-3 Sätze","faehigkeiten":["konkrete Teilfähigkeiten"],"bausteine":[{"titel":"Technik, Methode oder Wissensbaustein","inhalt":"1 Satz","quelle":"Studie, Forscher, Buch oder Praxis","evidenz":"stark|mittel|schwach|umstritten"}],"mythen":["was oft behauptet wird, aber nicht stimmt"],"uebungen":["Übungsformen, die nachweislich wirken"],"meilensteine":[{"wann":"z. B. nach 4 Wochen","messbar":"woran erkennbar"}]}\n12 bis 18 Bausteine, vom Fundament zum Profi-Niveau sortiert. Alle Texte kurz halten.`;
   const p=await ai(sys,user);
   S.paths.push({...p,id:Date.now().toString(36),ziel:f.ziel,vorbild:f.vorbild,d:today()});save();
 }
@@ -617,7 +623,7 @@ function vSetup(){
 function render(){
   document.body.classList.toggle('locked',locked);
   const V={lock:vLock,heute:vHeute,plan:vPlan,coach:vCoach,sport:vSport,stand:vStand,setup:vSetup}[locked?'lock':view];
-  $('v').innerHTML=V();
+  $('v').innerHTML=(locked?'':storeWarn())+V();
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===view));
   if(view==='setup'&&!locked){$('prov').value=S.set.prov;$('min').value=S.set.min;$('words').value=S.set.words}
 }
