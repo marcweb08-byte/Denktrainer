@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https: http:; font-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#1f4fa8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<title>Denktraining</title>
+<style>
+:root{color-scheme:light dark;--bg:light-dark(#f4f5f7,#0f1318);--card:light-dark(#fff,#181e26);--ink:light-dark(#121820,#e8ecf1);--mut:light-dark(#5d6775,#95a0ae);--line:light-dark(#dde1e7,#28313c);--acc:#1f4fa8;--acc2:light-dark(#1f4fa8,#6f9cf0);--soft:light-dark(#eef3fc,#1a2536);--ok:#1d8a52;--mid:#c28a10;--bad:#c23b2b}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow-x:clip;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+header{background:var(--acc);color:#fff;padding:calc(16px + env(safe-area-inset-top)) 18px 18px}
+.hrow{display:flex;justify-content:space-between;align-items:center;gap:10px;max-width:720px;margin:0 auto}
+header h1{margin:0;font-size:30px;line-height:1.05;font-weight:800;letter-spacing:-.01em}
+header p{margin:4px auto 0;opacity:.85;font-size:14px;max-width:720px}
+header .gear{background:transparent;color:#fff;border-color:rgba(255,255,255,.4);font-size:14px;min-height:38px;padding:0 12px}
+.prog{height:8px;background:rgba(255,255,255,.25);border-radius:4px;overflow:hidden;margin:10px auto 0;max-width:720px}
+.prog i{display:block;height:100%;background:#fff}
+main{max-width:720px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.lesson{border-color:var(--acc2);border-width:2px}
+.kat{font-size:13px;color:var(--acc2);font-weight:700}
+h2{font-size:20px;margin:2px 0 8px;line-height:1.2}
+h3{font-size:16px;margin:14px 0 4px}
+.txt{white-space:pre-wrap}
+textarea,input,select{width:100%;font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
+textarea{min-height:130px;resize:vertical}
+button{font:600 16px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.p{background:var(--acc);border-color:var(--acc);color:#fff}
+button:disabled{opacity:.5}
+:focus-visible{outline:3px solid var(--acc2);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.row>button{flex:1 1 auto}
+.mut{color:var(--mut);font-size:14px}
+.tip{background:var(--soft);border-radius:10px;padding:10px;margin-top:10px;font-size:15px}
+.score{display:flex;align-items:center;gap:12px;margin:12px 0 4px}
+.score b{font-size:34px;line-height:1}
+.fb{border-top:1px solid var(--line);margin-top:12px;padding-top:4px}
+ul{margin:4px 0;padding-left:20px}
+details summary{cursor:pointer;font-weight:600;min-height:34px;padding-top:6px}
+.done{opacity:.8}
+nav{position:fixed;inset:auto 0 0 0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:5}
+nav button{border:0;border-radius:0;background:none;font-size:13px;min-height:58px;color:var(--mut);padding:0 4px}
+nav button.on{color:var(--acc2);box-shadow:inset 0 3px var(--acc2)}
+.bar{display:grid;grid-template-columns:8.5em minmax(0,1fr) 3.2em;gap:8px;align-items:center;font-size:14px;margin:6px 0}
+.bar span:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.bar div{height:10px;background:var(--line);border-radius:5px;overflow:hidden}.bar div i{display:block;height:100%;background:var(--acc2)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.stats div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
+.stats b{display:block;font-size:26px;line-height:1.1}
+.stats span{font-size:12px;color:var(--mut)}
+.big{font-size:clamp(30px,9vw,52px);font-weight:800;text-align:center;line-height:1.1;margin:22px 0;overflow-wrap:anywhere}
+.timer{font-size:56px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums;color:var(--acc2)}
+label{display:block;font-weight:600;font-size:14px;margin:12px 0 4px}
+.chk{display:flex;align-items:center;gap:10px;font-weight:400;font-size:16px;margin:6px 0}
+.chk input{width:22px;height:22px}
+.err{color:var(--bad);font-size:14px;margin-top:8px;white-space:pre-wrap}
+.okm{color:var(--ok);font-size:14px;margin-top:8px}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:14px}
+.seg button{padding:0 6px;font-size:15px}
+.seg button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.msg{padding:10px 12px;border-radius:12px;margin:8px 0;white-space:pre-wrap;max-width:92%}
+.msg.u{background:var(--acc);color:#fff;margin-left:auto}
+.msg.a{background:var(--card);border:1px solid var(--line)}
+.ctx{font-size:13px;background:var(--soft);border-radius:8px;padding:8px;margin-bottom:8px}
+.erl{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:15px}
+.erl s{color:var(--mut)}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:r .8s linear infinite;vertical-align:-3px;margin-right:6px}
+@keyframes r{to{transform:rotate(1turn)}}
+@media(prefers-reduced-motion:reduce){.spin{animation:none}}
+@media(max-width:420px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+body.locked nav,body.locked .gear{display:none}
+</style>
+</head>
+<body>
+<header><div class="hrow"><h1 id="ht">Heute</h1><button class="gear" data-go="setup">Einstellungen</button></div><p id="hs"></p><div class="prog" id="hp" hidden><i></i></div></header>
+<main id="v"></main>
+<nav>
+<button data-v="heute" class="on">Heute</button>
+<button data-v="plan">Plan</button>
+<button data-v="coach">Coach</button>
+<button data-v="sport">Sport</button>
+<button data-v="stand">Stand</button>
+</nav>
+<script>
+{
+/* ================= Inhalte ================= */
+const CATS={
+wort:{n:'Wortschatz',w:1,d:'Ein anspruchsvolles, bildungssprachliches deutsches Wort (Niveau wie "eloquent", "lakonisch", "ambivalent", "prägnant", "opportun"), das man im Alltag wirklich einsetzen kann. Der Nutzer nennt die vermutete Bedeutung UND bildet einen eigenen, natürlichen Satz aus seinem Alltag. Fülle "wort" und "bedeutung" (Definition, Herkunft in einem Halbsatz, ein Beispielsatz). Die Bedeutung darf NICHT in "aufgabe" stehen.'},
+smalltalk:{n:'Smalltalk',w:1.4,d:'Konkrete Smalltalk-Situation (Party, Kunde, Training, Uni, Betrieb, Fremder in der Bahn, Familienfeier) mit Details über die andere Person und die Umgebung. Der Nutzer schreibt seine ersten 3 bis 4 Gesprächsbeiträge wörtlich: Einstieg, Anknüpfungspunkte nutzen, gute Fragen, etwas von sich erzählen, Gespräch vertiefen oder elegant beenden.'},
+ordnen:{n:'Gedanken ordnen',w:1.3,d:'Entweder: ein unstrukturiertes, realistisches Problem mit durcheinander erzählten Details, das der Nutzer präzise und gut formuliert zusammenfasst (Kernproblem, Ursachen, Optionen, Entscheidung mit Begründung, max. 6 Sätze). Oder: ein vages Ziel, für das der Nutzer einen präzisen, strukturierten Prompt für eine KI schreibt.'},
+alltag:{n:'Alltag & Reaktion',w:1.3,d:'Realistische, unangenehme Alltagssituation (Stress, Ärger, unfaire Kritik, Grenzen setzen, Konflikt in Team, Familie, Training oder mit Kunden). Der Nutzer schreibt wörtlich, was er sagt und tut, und warum.'},
+argument:{n:'Überzeugen',w:1.2,d:'Der Nutzer soll eine konkret beschriebene Person mit eigenen Interessen und Einwänden von etwas überzeugen oder eine Position verteidigen, manchmal eine, die er vermutlich nicht teilt.'},
+logik:{n:'Logik & Technik',w:1.2,d:'Offenes Denkproblem aus Mathe, Physik oder Mechatronik mit Praxisbezug (Hebel, Getriebe, Reibung, Energie, Schwingung, Sensorik, Regelung, Abschätzungen). Nicht nur Formel einsetzen: Der Nutzer muss den Ansatz selbst finden und Rechenweg und Begründung zeigen.'},
+kunst:{n:'Kunstgriffe erkennen',w:1.1,d:'Ein realistischer Dialog (Diskussion, Verkauf, Streit, Verhandlung, Politik, Social Media), in dem eine Person 1 bis 3 Kunstgriffe nach Schopenhauer, Fehlschlüsse oder Manipulationstechniken subtil einsetzt. NICHT benennen. Der Nutzer erkennt sie, erklärt ihre Wirkung und formuliert wörtlich einen Konter.'},
+sprache:{n:'Rechtschreibung & Stil',w:1.1,d:'Ein kurzer Text (3 bis 5 Sätze) mit Rechtschreib-, Grammatik-, Komma- und Stilfehlern. Den fehlerhaften Text vollständig in "aufgabe" schreiben. Der Nutzer schreibt ihn korrekt und stilistisch besser neu.'},
+psycho:{n:'Menschen lesen',w:1,d:'Beschreibe eine konkrete Person in einer Situation mit Verhalten, Worten, Körpersprache und Kontext, inklusive unscheinbarer Details. Der Nutzer erstellt ein Profil: Motive, Bedürfnisse, wahrscheinliche Persönlichkeit, welche Indizien worauf hindeuten, wie man am besten mit ihr umgeht.'},
+fall:{n:'Fall lösen',w:.9,d:'Kurzer, eindeutig lösbarer Rätselfall (Alltag oder Krimi) mit mehreren Indizien, auch unscheinbaren. Der Nutzer erkennt das Gesamtbild, leitet die Lösung her und begründet die Indizienkette.'},
+wissen:{n:'Wissen & Zusammenhänge',w:.9,d:'Eine anspruchsvolle Warum- oder Wie-Frage mit Tiefe (Geschichte, Wirtschaft, Recht, Naturwissenschaft, Technik, Gesellschaft, Psychologie). Kein Quiz-Fakt: Der Nutzer erklärt Zusammenhänge oder leitet sie her.'},
+praxis:{n:'Praxis & Test',w:.8,d:'Aufgabe wie aus Einstellungstests, aber mit echtem Lebensnutzen: Kopfrechnen, Prozente, Zinsen, Kleingedrucktes in Verträgen, Zeit- und Budgetplanung, Fermi-Schätzung, Daten deuten. Der Nutzer zeigt den Rechen- oder Denkweg.'},
+fremd:{n:'Fremdsprache',w:.8,d:'Kurze Aufgabe in der Fremdsprache: realistische Nachricht beantworten, Situation beschreiben oder etwas idiomatisch übersetzen. Aufgabe in der Fremdsprache stellen.'},
+technik:{n:'Technik anwenden',x:1},debatte:{n:'Debatte',x:1}
+};
+const DAILY=Object.keys(CATS).filter(k=>!CATS[k].x);
+const MOD={
+eristik:{n:'Schopenhauer: Eristische Dialektik',l:['Die Erweiterung','Die Homonymie','Relativ Gesagtes absolut nehmen','Prämissen verdeckt vorbereiten','Falsche Prämissen nutzen','Verdeckte Petitio principii','Viele Fragen auf einmal','Den Gegner zornig machen','Fragen in verwürfelter Ordnung','Das Gegenteil fragen','Induktion durch Einzelzugeständnisse','Gleichnisse und Namen günstig wählen','Den Gegensatz grell machen','Triumph ausrufen trotz Niederlage','Den paradoxen Satz unterschieben','Argumentum ad hominem ex concessis','Die feine Unterscheidung','Den Gang der Debatte unterbrechen','Ins Allgemeine ausweichen','Den Schluss selbst ziehen','Scheinargument mit Scheinargument','Petitio principii vorwerfen','Zur Übertreibung reizen','Konsequenzmacherei','Die Instanz (Gegenbeispiel)','Retorsio argumenti (Umkehrung)','Nachhaken, wo der Gegner bös wird','Argumentum ad auditores','Die Diversion','Argumentum ad verecundiam (Autorität)','Ironische Inkompetenz','Verhasste Kategorie zuordnen','In der Theorie richtig, in der Praxis falsch','Bei Ausweichen nachbohren','Den Willen statt den Verstand ansprechen','Mit Wortschwall verblüffen','Schlechten Beweis widerlegen, Sache für widerlegt erklären','Persönlich werden (und das Gegenmittel)']},
+rhetorik:{n:'Fehlschlüsse & Manipulation',l:['Strohmann','Steelmanning als Gegenmittel','Falsches Dilemma','Dammbruchargument','Whataboutism und Tu quoque','Gish-Galopp','Motte-and-Bailey','Torpfosten verschieben','Suggestivfragen und Fangfragen','Framing','Ankereffekt','Foot-in-the-door','Door-in-the-face','Reziprozität als Hebel','Künstliche Knappheit','Social Proof','Autorität und Uniform','Liebesbombe und Schmeichelei','Gaslighting erkennen','Korrelation ist nicht Kausalität','Survivorship Bias','Bestätigungsfehler','Schweigen und Pausen als Waffe','Gegenfrage statt Antwort','Sokratisches Fragen']},
+denken:{n:'Problemlösen & Denkwerkzeuge',l:['Pólya: Verstehen, Planen, Ausführen, Prüfen','First-Principles-Denken','Inversion (vom Ziel rückwärts und vom Scheitern her)','Dimensionsanalyse','Grenzfälle und Extremwerte prüfen','Invarianten finden','Symmetrie ausnutzen','Problem vereinfachen, dann verallgemeinern','Fermi-Schätzung','MECE-Zerlegung','5 Warum','TRIZ: Widerspruch auflösen','Ishikawa-Diagramm im Kopf','Pre-Mortem','Bayes-Denken','Denken zweiter Ordnung','Erwartungswert und Opportunitätskosten','Analogien aus anderen Fachgebieten','Ockhams Rasiermesser richtig nutzen','Hypothese, Test, Widerlegung']},
+psy:{n:'Smalltalk, Menschen & Gesprächsführung',l:['Baseline und Abweichung','Big Five im Verhalten erkennen','Bedürfnisse hinter Positionen (GFK)','Grenzen der Körpersprache-Deutung','Spiegeln (Chris Voss)','Labeling von Gefühlen','Kalibrierte Fragen','Accusation Audit','Ein Nein provozieren','Grenzen setzen: Broken Record','Fogging bei Kritik','Ich-Botschaften ohne Weichspüler','Smalltalk: FORD und Faden aufnehmen','Status und Körperhaltung','De-Eskalation','Unter Stress klar bleiben: Atmung und Benennen','Reframing','Lob und Kritik richtig dosieren','Zuhören auf drei Ebenen','Kalte Deduktion: von Details zu Schlüssen, mit Wahrscheinlichkeiten','Smalltalk-Einstieg ohne Floskel','Anknüpfungspunkte und Gesprächsfäden','Geschichten erzählen, die hängen bleiben','Humor und Leichtigkeit','Gespräche elegant beenden','Namen merken und nutzen','Der erste Eindruck in 30 Sekunden','Gruppengespräche: einsteigen und gehört werden']},
+ausdruck:{n:'Struktur & Ausdruck',l:['Pyramidenprinzip (Minto)','SCQA-Einstieg','BLUF: Kernaussage zuerst','PREP-Argument','Prompt-Struktur: Rolle, Ziel, Kontext, Format, Kriterien, Beispiele','Präzise Verben statt Nominalstil','Streichen: jedes Wort muss arbeiten','Dreierregel und Rhythmus','Konkret statt abstrakt','Kommaregeln, die jeder falsch macht','das oder dass, seit oder seid und Co.','Konjunktiv I und II sicher','Fremdwörter korrekt einsetzen','Übergänge, die Logik zeigen','Starke Einstiege und Schlüsse','Schlagfertigkeit','Klar sprechen statt Füllwörter','Erklären auf drei Niveaus']},
+lernen:{n:'Lernen & Gedächtnis',l:['Feynman-Methode','Abrufen statt Wiederlesen','Spaced Repetition','Interleaving','Elaboration: Warum-Fragen','Gedächtnispalast (Loci)','Major-System für Zahlen','Chunking','Fehlerjournal','Wissen übertragen (Transfer)']}
+};
+const PRIO='Priorität nach Alltagsnutzen: 1. Smalltalk und souveränes Gesprächsverhalten, 2. sich präzise, geordnet und schön ausdrücken, 3. klar denken und Probleme lösen, 4. überzeugen, argumentieren, Kunstgriffe erkennen und kontern, danach der Rest.';
+const PRESETS={groq:{base:'https://api.groq.com/openai/v1',model:'openai/gpt-oss-120b'},openrouter:{base:'https://openrouter.ai/api/v1',model:'openai/gpt-oss-120b:free'},eigen:{base:'',model:''}};
+const GOALS='Logischer denken (Mathe, Physik, Mechatronik) und bei jedem Problem sehr gute Lösungsansätze finden. Smalltalk sicher beherrschen. Gedanken geordnet, präzise und schön ausdrücken, auch Prompts. In Alltagssituationen (Stress, Ärger) souverän reagieren. Argumentieren, überzeugen, Diskussionen gewinnen, Kunstgriffe (Schopenhauer) und Manipulation erkennen, kontern und selbst beherrschen. Menschen analysieren, Profile erstellen, Fälle lösen, das Gesamtbild sehen. Rechtschreibung, Fremdsprache, Allgemeinwissen, Einstellungstests. Nicht nur Oberfläche, sondern Fortgeschrittenes, das die wenigsten können, und es wirklich anwenden können.';
+const DEF={set:{prov:'groq',base:PRESETS.groq.base,model:PRESETS.groq.model,key:'',min:20,words:1,lang:'Englisch',name:'Marc',about:'18 Jahre, duales Maschinenbau-Studium, Freelance-Webentwickler, Ju-Jutsu-Trainerassistent.',cats:Object.fromEntries(DAILY.map(k=>[k,true]))},goals:GOALS,days:{},res:[],words:[],lvl:{},ana:null,plan:null,tech:{},techN:0,chat:[],deb:null,ctx:null,profil:'',err:{},tut:null,topics:{},lastCycle:''};
+
+/* ================= Speicher & Verschlüsselung ================= */
+const enc=new TextEncoder(),dec=new TextDecoder();
+const b64=buf=>{const u=new Uint8Array(buf);let s='';for(let i=0;i<u.length;i+=32768)s+=String.fromCharCode.apply(null,u.subarray(i,i+32768));return btoa(s)};
+const unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function derive(pass,salt){const base=await crypto.subtle.importKey('raw',enc.encode(pass),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:310000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+function merge(L){const s=Object.assign(structuredClone(DEF),L||{});s.set=Object.assign(structuredClone(DEF.set),L?.set);s.set.cats=Object.assign(structuredClone(DEF.set.cats),L?.set?.cats);if(!PRESETS[s.set.prov])s.set.prov='eigen';return s}
+let S=structuredClone(DEF),K=null,SALT=null,locked=false,st=null,hiddenAt=0;
+async function saveNow(){
+  if(locked)return;
+  try{
+    const json=JSON.stringify(S);
+    if(K){const iv=crypto.getRandomValues(new Uint8Array(12));const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},K,enc.encode(json));localStorage.setItem('dtx',JSON.stringify({v:1,salt:b64(SALT),iv:b64(iv),data:b64(ct)}));localStorage.removeItem('dt')}
+    else{localStorage.setItem('dt',json);localStorage.removeItem('dtx')}
+  }catch(e){}
+}
+const save=()=>{clearTimeout(st);st=setTimeout(saveNow,300)};
+try{if(localStorage.getItem('dtx'))locked=true;else S=merge(JSON.parse(localStorage.getItem('dt')||'{}'))}catch(e){S=structuredClone(DEF)}
+async function unlock(pass){
+  const o=JSON.parse(localStorage.getItem('dtx'));const salt=unb64(o.salt);const k=await derive(pass,salt);
+  let plain;try{plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(o.iv)},k,unb64(o.data))}catch(e){throw new Error('Falsches Passwort.')}
+  S=merge(JSON.parse(dec.decode(plain)));K=k;SALT=salt;locked=false;
+}
+document.addEventListener('visibilitychange',()=>{if(document.hidden){hiddenAt=Date.now();clearTimeout(st);saveNow()}else if(K&&hiddenAt&&Date.now()-hiddenAt>5*60e3)location.reload()});
+
+/* ================= Helfer ================= */
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const today=()=>new Date().toLocaleDateString('sv');
+const addDays=(d,n)=>{const x=new Date(d+'T12:00');x.setDate(x.getDate()+n);return x.toLocaleDateString('sv')};
+const daysBetween=(a,b)=>Math.round((new Date(b+'T12:00')-new Date(a+'T12:00'))/864e5);
+const lvl=k=>S.lvl[k]??2;
+const $=id=>document.getElementById(id);
+const li=a=>Array.isArray(a)&&a.length?`<ul>${a.map(x=>`<li>${esc(typeof x==='object'?Object.values(x).join(' · '):x)}</li>`).join('')}</ul>`:'';
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let view=locked?'lock':'heute',busy={},coachMode='frage';
+const topErr=n=>Object.entries(S.err).filter(([,e])=>!e.done).sort((a,b)=>b[1].n/(1+daysBetween(b[1].last,today())/14)-a[1].n/(1+daysBetween(a[1].last,today())/14)).slice(0,n);
+const planCtx=()=>S.plan?`\nLernplan-Ziele: ${(S.plan.ziele||[]).map(z=>z.ziel||z).slice(0,4).join('; ')}`:'';
+const prof=()=>`Nutzer: ${S.set.name}, ${S.set.about}\nZiele: ${S.goals}${S.profil?`\nLernerprofil (wie er lernt, Stärken, Schwächen): ${S.profil}`:''}${topErr(5).length?`\nWiederkehrende Fehler: ${topErr(5).map(([k,e])=>`${k} (${e.n}×)`).join('; ')}`:''}${planCtx()}`;
+
+/* ================= KI ================= */
+function parseJ(c){c=String(c).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```(json)?/g,'');const a=c.indexOf('{'),b=c.lastIndexOf('}');if(a<0)throw new Error('Keine gültige Antwort vom Modell. Nochmal versuchen.');return JSON.parse(c.slice(a,b+1))}
+async function ai(sys,msgs,json=true){
+  const s=S.set;
+  if(!s.base||!s.model)throw new Error('API-Adresse und Modell unter Einstellungen eintragen.');
+  if(!s.key)throw new Error('Kein API-Key. Unter Einstellungen eintragen (gratis auf console.groq.com).');
+  if(typeof msgs==='string')msgs=[{role:'user',content:msgs}];
+  const body={model:s.model,messages:[{role:'system',content:sys},...msgs],temperature:.8};
+  if(json)body.response_format={type:'json_object'};
+  if(/gpt-oss/.test(s.model)&&/groq/.test(s.base))body.reasoning_effort='low';
+  const go=()=>fetch(s.base.replace(/\/$/,'')+'/chat/completions',{method:'POST',referrerPolicy:'no-referrer',headers:{'Content-Type':'application/json',Authorization:'Bearer '+s.key},body:JSON.stringify(body)});
+  let r;
+  for(let tries=0;;tries++){
+    try{r=await go()}catch(e){throw new Error('Keine Verbindung zur KI. Internet oder Adresse prüfen.')}
+    if(r.status===400&&body.response_format){delete body.response_format;delete body.reasoning_effort;continue}
+    if(r.status===429&&tries<2){const ra=+r.headers.get('retry-after')||15;await sleep(Math.min(40,ra)*1000+500);continue}
+    break;
+  }
+  if(r.status===429)throw new Error('Limit der Gratis-API erreicht. Eine Minute warten und nochmal versuchen.');
+  if(!r.ok)throw new Error('Fehler '+r.status+': '+(await r.text()).slice(0,240));
+  const c=(await r.json()).choices?.[0]?.message?.content||'';
+  return json?parseJ(c):c.replace(/<think>[\s\S]*?<\/think>/g,'').trim();
+}
+const sysTrainer=per=>`Du bist ein anspruchsvoller persönlicher Trainer für logisches Denken, Sprache, Rhetorik und soziale Kompetenz. Ziel ist der größtmögliche echte Fortschritt. ${PRIO}
+${prof()}
+Regeln: Alle Aufgaben sind offen gestellt. Verrate nie die Lösung oder den Lösungsweg in der Aufgabe. Kein Multiple Choice. Jede Aufgabe ist in etwa ${per} Minuten lösbar, konkret, realistisch, abwechslungsreich, passend zu seinem Lernerprofil und anspruchsvoll statt Standardwissen. Sprache Deutsch, außer bei Fremdsprache (${S.set.lang}). Antworte ausschließlich mit gültigem JSON.`;
+
+/* ================= Tagesplan ================= */
+function pickCats(n,exclude=[]){
+  const on=DAILY.filter(k=>S.set.cats[k]&&k!=='wort'&&!exclude.includes(k));
+  const now=Date.now();
+  const sc=k=>{const r=S.res.filter(x=>x.cat===k);const last=r.length?r[r.length-1].t:0;const days=last?(now-last)/864e5:20;const rec=r.slice(-5);const avg=rec.length?rec.reduce((a,b)=>a+b.score,0)/rec.length:5;return (Math.min(days,10)+(10-avg)*.7)*(CATS[k].w||1)+Math.random()*2};
+  return on.sort((a,b)=>sc(b)-sc(a)).slice(0,Math.max(0,n));
+}
+function candidates(){
+  const c=Object.entries(S.tech).filter(([,x])=>x.relearn).map(([id,x])=>({id,name:x.titel,mod:x.mod,re:1}));
+  for(const [m,M] of Object.entries(MOD)){let k=0;M.l.forEach((n,i)=>{if(!S.tech[m+':'+i]&&k<4){c.push({id:m+':'+i,name:n,mod:m});k++}})}
+  return c;
+}
+async function makeLesson(){
+  const c=candidates();if(!c.length)return null;
+  const last=Object.values(S.tech).sort((a,b)=>a.d<b.d?1:-1).slice(0,5).map(x=>x.titel).join('; ')||'keine';
+  const sys=`Du bist ein Experte für Rhetorik, Psychologie, Gesprächsführung, Denkmethoden und Sprache und unterrichtest einen ehrgeizigen Lernenden auf fortgeschrittenem Niveau. ${prof()}
+Erkläre so, wie es zu seinem Lernerprofil passt. Keine Oberfläche: auch Feinheiten, Profi-Tricks und typische Fehler, die die meisten nicht kennen. Antworte ausschließlich mit gültigem JSON auf Deutsch.`;
+  const user=`Wähle aus diesen Kandidaten genau EINE Lektion, die ${S.set.name} jetzt den größten Fortschritt bringt. Berücksichtige Alltagsnutzen, seine Ziele, Schwächen, Fehlermuster und Abwechslung zu den letzten Lektionen (${last}). ${PRIO}
+Mit [NEU ERKLÄREN] markierte Techniken hat er nicht verstanden: Diese haben Vorrang, wenn sie gerade passen, und müssen komplett anders erklärt werden (andere Analogie, anderer Zugang, praktischer).
+Kandidaten:
+${c.map(x=>`${x.id} | ${MOD[x.mod].n} | ${x.name}${x.re?' [NEU ERKLÄREN]':''}`).join('\n')}
+
+Format:
+{"wahl":"id aus der Liste","grund":"warum gerade jetzt, 1 Satz","titel":"...","kern":"die Technik in 1-2 Sätzen","erklaerung":"wie und warum sie wirkt, 4-7 Sätze","beispiel":"konkretes, realistisches Beispiel, gern als kurzer Dialog","erkennen":"woran man sie beim Gegenüber erkennt bzw. wann man sie braucht","kontern":"wörtliche Formulierungen: Konter bzw. saubere eigene Anwendung","profi":"was die meisten nicht wissen: Feinheiten, Kombinationen, typische Fehler","uebung":"offene Anwendungsaufgabe, in der er die Technik selbst einsetzt oder erkennt und kontert (ohne Lösung)","kriterien":"woran eine sehr gute Lösung erkennbar ist"}${c.some(x=>x.mod==='eristik')?'\nBei Schopenhauer-Kunstgriffen die Nummer im Titel nennen.':''}`;
+  const L=await ai(sys,user);
+  const pick=c.find(x=>x.id===L.wahl)||c[0];
+  return{L,pick};
+}
+async function genTasks(slots,per){
+  if(!slots.length)return[];
+  const known=S.words.map(w=>w.w).slice(-300).join(', ')||'keine';
+  const recent=S.res.slice(-30).map(r=>r.title).join(' | ')||'keine';
+  const fokus=S.ana?.fokus?.length?'\nAktuelle Schwerpunkte: '+S.ana.fokus.join('; '):'';
+  const list=slots.map((s,i)=>`${i+1}. kat="${s.k}" (${CATS[s.k].n}), Schwierigkeit ${(s.lv??lvl(s.k)).toFixed(1)}/5: ${s.desc||CATS[s.k].d}${s.transfer?` TRANSFER: Baue die Situation so, dass die früher gelernte Technik "${s.transfer}" nützlich ist, ohne sie zu nennen.`:''}`).join('\n');
+  const user=`Erstelle diese ${slots.length} Aufgaben, in genau dieser Reihenfolge:\n${list}\n\nBereits gelernte Wörter (nicht wiederholen): ${known}\nLetzte Aufgaben (Themen nicht wiederholen): ${recent}${fokus}\n\nFormat:\n{"aufgaben":[{"kat":"...","titel":"kurzer Titel","aufgabe":"vollständiger Aufgabentext","tipp":"Denkanstoß, der NICHT die Lösung verrät","kriterien":"woran eine sehr gute Antwort erkennbar ist, inkl. richtiger Lösung falls es eine gibt","wort":"nur bei wort","bedeutung":"nur bei wort"}]}`;
+  const j=await ai(sysTrainer(per),user);
+  const out=(j.aufgaben||[]).slice(0,slots.length).map((a,i)=>({...a,kat:slots[i].k,err:slots[i].err,transfer:slots[i].transfer,ans:'',grade:null,showTip:false}));
+  if(!out.length)throw new Error('Das Modell hat keine Aufgaben geliefert. Nochmal versuchen.');
+  return out;
+}
+async function makeDay(type){
+  const t=today();
+  if(type==='test'){
+    const all=DAILY.filter(k=>S.set.cats[k]).map(k=>({k,lv:3})),h=Math.ceil(all.length/2);
+    const tasks=[...await genTasks(all.slice(0,h),3),...await genTasks(all.slice(h),3)];
+    S.days[t]={type:'test',tasks,lesson:null};save();return;
+  }
+  const N={10:4,20:6,30:8}[S.set.min]||6;
+  const nw=S.set.cats.wort?Math.min(+S.set.words,2):0;
+  const weekTech=Object.values(S.tech).filter(x=>x.d>=addDays(t,-7)&&x.d<t);
+  const review=new Date().getDay()===0&&weekTech.length>0;
+  const slots=Array.from({length:nw},()=>({k:'wort'}));
+  let les=null,redo=null,ex=[];
+  if(review){
+    weekTech.slice(-3).forEach(x=>slots.push({k:'technik',desc:`WOCHENWIEDERHOLUNG der Technik "${x.titel}" (${x.kern}). Neue Situation, in der er sie anwenden oder erkennen und kontern muss.`}));
+  }else{
+    les=await makeLesson();
+    const E=topErr(1)[0];
+    if(E&&S.set.cats[E[1].cat]!==false&&DAILY.includes(E[1].cat)){slots.push({k:E[1].cat,err:E[0],desc:`FEHLERTRAINING: Eine Aufgabe, die gezielt dieses wiederkehrende Fehlermuster trainiert: "${E[0]}". Die Aufgabe darf den Fehler nicht benennen. ${CATS[E[1].cat].d}`});ex.push(E[1].cat)}
+    redo=S.res.filter(x=>x.score<5&&!x.redo&&x.d>=addDays(t,-7)&&DAILY.includes(x.cat)&&!ex.includes(x.cat)).pop();
+    if(redo){slots.push({k:redo.cat,desc:`WIEDERHOLUNG: neue, ähnliche Aufgabe wie "${redo.title}", gleiche Schwierigkeit. Damaliger Fehler: ${redo.besser}. ${CATS[redo.cat].d}`});ex.push(redo.cat)}
+  }
+  pickCats(Math.max(1,N-slots.length-(les?1:0)),ex).forEach(k=>slots.push({k}));
+  const known=Object.values(S.tech).filter(x=>(x.box||1)>=2&&!x.relearn);
+  if(known.length){const s=slots.filter(x=>x.k!=='wort'&&!x.err&&!x.desc);if(s.length)s[Math.floor(Math.random()*s.length)].transfer=known[Math.floor(Math.random()*known.length)].titel}
+  const per=Math.max(2,Math.round(S.set.min/N));
+  const tasks=await genTasks(slots,per);
+  if(les){
+    const {L,pick}=les;
+    tasks.splice(nw,0,{kat:'technik',titel:L.titel,aufgabe:L.uebung,tipp:L.kontern,kriterien:L.kriterien,ans:'',grade:null,showTip:false,tech:pick.id});
+    S.tech[pick.id]={...L,name:pick.name,mod:pick.mod,d:t,box:1,due:t,relearn:false,re:pick.re?1:0};S.techN++;
+  }
+  if(redo)redo.redo=true;
+  S.days[t]={type:review?'review':'normal',tasks,lesson:les?les.pick.id:null};save();
+}
+async function grade(i){
+  const day=S.days[today()],t=day.tasks[i];
+  const sys=`Du bewertest Trainingsantworten streng, ehrlich und konkret wie ein sehr guter Mentor. Keine Floskeln, kein Lob ohne Grund, direkte Kritik, angepasst an sein Lernerprofil. Prüfe Inhalt und Logik, und bei jedem Text auch Rechtschreibung, Grammatik, Zeichensetzung, Präzision und Stil. Zeige, was ein Profi zusätzlich gesehen oder gemacht hätte.
+${prof()}
+Antworte ausschließlich mit gültigem JSON auf Deutsch.`;
+  const known=Object.keys(S.err).slice(-60).join('; ')||'keine';
+  const user=`Kategorie: ${CATS[t.kat].n} (Stufe ${lvl(t.kat).toFixed(1)}/5)\nAufgabe: ${t.aufgabe}\n${t.wort?`Wort: ${t.wort}\nKorrekte Bedeutung: ${t.bedeutung}\n`:''}${t.tech?`Geübte Technik: ${S.tech[t.tech]?.titel}: ${S.tech[t.tech]?.kern}\n`:''}${t.err?`Diese Aufgabe trainiert gezielt den Fehler "${t.err}". Nenne ihn in fehlertypen nur, wenn er wieder auftritt.\n`:''}${t.transfer?`Versteckt nützliche, früher gelernte Technik: "${t.transfer}". Bewerte mit, ob er sie erkannt oder genutzt hat, und erwähne es.\n`:''}Bewertungskriterien: ${t.kriterien}\n\nAntwort:\n"""${t.ans}"""\n\nBereits bekannte Fehlertypen (gleiche Bezeichnung wiederverwenden, wenn passend): ${known}\n\nFormat:\n{"punkte":ganze Zahl 0-10,"fazit":"ein Satz","gut":"was wirklich gut war","besser":"konkret, was fehlt oder falsch ist und wie es besser geht","profi":"was ein Profi zusätzlich gesehen oder gemacht hätte","fehler":["falsch → richtig"],"fehlertypen":["kurze, stabile Bezeichnung jedes Fehlers, der wiederkehren kann, z. B. 'Komma vor Nebensatz', 'Grenzfälle nicht geprüft', 'Bedürfnis des Gegenübers ignoriert', 'zu lang statt auf den Punkt'"],"muster":"eine starke Beispielantwort bzw. die Lösung mit Weg"}`;
+  const g=await ai(sys,user);
+  g.punkte=Math.max(0,Math.min(10,Math.round(+g.punkte||0)));
+  const first=!t.grade;t.grade=g;
+  if(first){
+    S.res.push({t:Date.now(),d:today(),cat:t.kat,score:g.punkte,title:t.titel,fazit:g.fazit,besser:g.besser,test:day.type==='test'});
+    if(DAILY.includes(t.kat))S.lvl[t.kat]=Math.max(1,Math.min(5,lvl(t.kat)+(g.punkte-7)*.12));
+    if(t.wort&&!S.words.some(w=>w.w.toLowerCase()===t.wort.toLowerCase()))S.words.push({w:t.wort,m:t.bedeutung,box:1,due:today()});
+    const types=(Array.isArray(g.fehlertypen)?g.fehlertypen:[]).map(x=>String(x).trim()).filter(Boolean).slice(0,4);
+    types.forEach(k=>{const e=S.err[k]||{n:0,ok:0,cat:t.kat};e.n++;e.last=today();e.ok=0;e.done=false;if(DAILY.includes(t.kat))e.cat=t.kat;S.err[k]=e});
+    if(t.err&&S.err[t.err]&&!types.includes(t.err)&&g.punkte>=7){const e=S.err[t.err];e.ok=(e.ok||0)+1;if(e.ok>=2)e.done=true}
+    if(t.tech&&S.tech[t.tech]){const x=S.tech[t.tech];if(g.punkte<5){x.relearn=true;x.due=today()}else if(g.punkte>=8){x.box=Math.max(x.box||1,4);x.due=addDays(today(),14)}}
+  }
+  save();maybeCycle();
+}
+async function makePlan(){
+  const testDay=Object.entries(S.days).filter(([,d])=>d.type==='test').pop();
+  const testRes=testDay?testDay[1].tasks.filter(t=>t.grade).map(t=>`${CATS[t.kat].n} | ${t.grade.punkte}/10 | ${t.grade.fazit} | Schwäche: ${t.grade.besser}`).join('\n'):'';
+  const later=S.res.filter(r=>!r.test).slice(-40).map(r=>`${r.d} | ${CATS[r.cat]?.n} | ${r.score}/10 | ${r.besser}`).join('\n');
+  const sys=`Du bist ein erfahrener Lerncoach und Trainer für Denken, Rhetorik, Psychologie und Sprache. Du gibst ehrliche, harte Einschätzungen und erstellst konkrete, messbare Lernpläne mit fortgeschrittenen Inhalten statt Allgemeinplätzen. ${PRIO} Antworte ausschließlich mit gültigem JSON auf Deutsch.`;
+  const user=`${prof()}\nZeit: ${S.set.min} Minuten pro Tag plus 2 Minuten Abrufen beim Sport.\n${testRes?`Einstufungstest:\n${testRes}\n`:''}${later?`Trainingsergebnisse:\n${later}\n`:''}${S.plan?`Bisheriger Plan (anpassen): ${S.plan.gesamt}\n`:''}
+Lernmodule (ids): ${Object.entries(MOD).map(([k,m])=>k+' = '+m.n).join('; ')}
+Bereich-ids: ${DAILY.map(k=>k+' = '+CATS[k].n).join('; ')}
+Format:
+{"gesamt":"ehrliche Gesamteinschätzung, 4-6 Sätze","bereiche":[{"kat":"bereich-id","stufe":1-5,"text":"Einschätzung in 1-2 Sätzen"}],"ziele":[{"ziel":"konkretes Ziel","messbar":"woran erkennbar, dass es erreicht ist","bis":"Zeitraum"}],"woche":["Mo: Schwerpunkt ...","Di: ...","Mi: ...","Do: ...","Fr: ...","Sa: ...","So: Wochenwiederholung"],"regeln":["konkrete Gewohnheiten und Prinzipien"],"fallen":["typische Fehler, die er vermeiden muss"]}`;
+  const p=await ai(sys,user);
+  (p.bereiche||[]).forEach(b=>{if(DAILY.includes(b.kat)&&+b.stufe)S.lvl[b.kat]=Math.max(1,Math.min(5,+b.stufe))});
+  S.plan={...p,d:today()};save();
+}
+async function analyse(){
+  const r=S.res.slice(-40).map(x=>`${x.d} | ${CATS[x.cat]?.n} | ${x.score}/10 | ${x.fazit||''} | Verbessern: ${x.besser||''}`).join('\n');
+  const sys='Du bist ein ehrlicher Lerncoach. Analysiere Trainingsergebnisse und erkenne Muster. Direkt, konkret, ohne Floskeln. Antworte ausschließlich mit gültigem JSON auf Deutsch.';
+  const user=`${prof()}\nErgebnisse (neueste unten):\n${r}\n\nFormat:\n{"zusammenfassung":"3-4 Sätze","staerken":["..."],"schwaechen":["wiederkehrende Fehlermuster"],"fokus":["3 konkrete Schwerpunkte für die nächsten Tage"]}`;
+  S.ana={...await ai(sys,user),d:today()};save();
+}
+async function updateProfile(){
+  const r=S.res.slice(-30).map(x=>`${CATS[x.cat]?.n}: ${x.score}/10, ${x.besser||''}`).join('\n');
+  const t=Object.entries(S.topics).map(([k,v])=>`${k}: ${v.lernstil||''}`).join('\n')||'keine';
+  const sys='Du pflegst das Lernerprofil eines Schülers für seinen persönlichen KI-Trainer. Nur Beobachtungen, die durch die Daten gestützt sind, keine Diagnosen. Antworte ausschließlich mit gültigem JSON auf Deutsch.';
+  const user=`Bisheriges Profil: ${S.profil||'leer'}\nSelbstbeschreibung: ${S.set.about}\nZiele: ${S.goals}\nErgebnisse:\n${r}\nBeobachtungen aus Lernsitzungen:\n${t}\nFehlermuster: ${topErr(8).map(([k,e])=>k+' '+e.n+'×').join('; ')||'keine'}\n\nFormat: {"profil":"max. 150 Wörter: Lernstil und wie man ihm am besten erklärt, Stärken, Schwächen, typische Denk- und Ausdrucksfehler, woran man erkennt, ob er wirklich verstanden hat"}`;
+  const j=await ai(sys,user);if(j.profil){S.profil=j.profil;S.profilD=today();save()}
+}
+async function maybeCycle(){
+  if(busy.cycle||locked||!S.set.key)return;
+  const fresh=S.res.filter(r=>r.d>(S.lastCycle||'')).length;
+  if(S.res.length<5||fresh<5||(S.lastCycle&&daysBetween(S.lastCycle,today())<7))return;
+  busy.cycle=1;const b=$('cyc');if(b)b.hidden=false;
+  try{await analyse();await updateProfile();if(S.plan)await makePlan();S.lastCycle=today();save()}catch(e){}
+  busy.cycle=0;const b2=$('cyc');if(b2)b2.textContent='Wochenauswertung fertig: Profil, Fokus und Plan sind aktualisiert.';
+}
+
+/* ================= Coach ================= */
+const sysFrage=()=>`Du bist der persönliche Coach von ${S.set.name} für Denken, Mathe, Physik, Mechatronik, Rhetorik, Psychologie, Smalltalk, Sprache und Allgemeinwissen.
+${prof()}
+Antworte direkt, präzise und tiefgehend, auch mit Profi-Wissen, passend zu seinem Lernerprofil. Keine Floskeln. Kurz, außer er will mehr. Formeln in Klartext (z. B. E = h·f), kein LaTeX.
+Wenn er sagt, er hat etwas verstanden, es aber nicht gezeigt hat: Frag freundlich nach ("Sicher? Dann erklär mir kurz …") oder stell eine kurze Verständnis- oder Transferfrage.${S.ctx?`\nEr arbeitet an dieser Trainingsaufgabe: "${S.ctx.titel}": ${S.ctx.aufgabe}\nVor der Abgabe: nur Rückfragen und Denkanstöße (sokratisch), die Lösung nur, wenn er ausdrücklich danach fragt.`:''}`;
+const sysTut=()=>{const T=S.tut,P=S.topics[T.topic];return `Du bist ein exzellenter Privatlehrer für ${S.set.name}. Thema: "${T.topic}". ${T.ziel?`Sein Ziel: ${T.ziel}.`:''}
+${prof()}${P?`\nLetzter Stand in diesem Thema: Kann: ${P.stand} Lücken: ${P.luecken} Nächster Schritt: ${P.naechster}`:''}
+Methode:
+1. Zu Beginn kurz das Vorwissen prüfen (1-2 Fragen), dann dort ansetzen.
+2. In kleinen Schritten erklären, genau auf sein Profil zugeschnitten. Ist er eher Praktiker: greifbare Beispiele, Experimente, Technik-Analogien, erst Intuition, dann Formel.
+3. Nach jedem Schritt eine Verständnisfrage, die Erklären, Anwenden oder Vorhersagen verlangt, nie eine Ja/Nein-Frage.
+4. Sagt er "verstanden" oder "ok", ohne es gezeigt zu haben, glaub es nicht einfach: "Sicher? Dann erklär es mir in eigenen Worten" oder eine Transferfrage.
+5. Ist die Antwort falsch oder lückenhaft, erkläre es anders (andere Analogie, anderer Zugang), nicht nur länger.
+6. Erst weiter, wenn er es nachweislich kann. Typische Missverständnisse und fortgeschrittene Feinheiten aktiv einbauen.
+7. Merkst du, welche Erklärweise bei ihm wirkt, nutze mehr davon.
+Kurze Nachrichten (max. ca. 150 Wörter), eine Sache pro Nachricht, auf Deutsch, Formeln in Klartext, kein LaTeX.`};
+const debSys=()=>`Du bist ein starker, gewiefter Debattengegner. Thema: "${S.deb.thema}". Deine Position: ${S.deb.pos}. Gegenüber: ${S.set.about}
+Ziel: Er soll lernen, Kunstgriffe zu erkennen und trotzdem zu gewinnen. Setze in JEDER Antwort 1 bis 2 Kunstgriffe aus Schopenhauers Eristischer Dialektik oder bekannte Fehlschlüsse und Manipulationstechniken subtil ein, gemischt mit echten guten Argumenten. Benenne sie NICHT. Werde schwerer zu schlagen, je besser er argumentiert. Antworten kurz (2-5 Sätze), wie in einem echten Gespräch, auf Deutsch.
+Format: {"antwort":"deine Antwort","kunstgriffe":["Name des verwendeten Kunstgriffs (versteckt)"]}`;
+async function coachSend(text){
+  if(coachMode==='frage'){
+    S.chat.push({role:'user',content:text});save();
+    const a=await ai(sysFrage(),S.chat.slice(-14),false);
+    S.chat.push({role:'assistant',content:a});save();
+  }else if(coachMode==='lernen'){
+    const T=S.tut;T.msgs.push({role:'user',content:text});save();
+    const a=await ai(sysTut(),T.msgs.slice(-20).map(m=>({role:m.role,content:m.content})),false);
+    T.msgs.push({role:'assistant',content:a});save();
+  }else{
+    const D=S.deb;D.msgs.push({role:'user',content:text});save();
+    const a=await ai(debSys(),D.msgs.slice(-16).map(m=>({role:m.role,content:m.content})));
+    D.msgs.push({role:'assistant',content:a.antwort||'',k:a.kunstgriffe||[]});save();
+  }
+}
+async function tutStart(topic,ziel){
+  S.tut={topic,ziel,msgs:[{role:'user',content:S.topics[topic]?'Wir machen in diesem Thema weiter. Knüpf an meinen letzten Stand an und prüf zuerst kurz, ob ich das Letzte noch kann.':'Starte die Lernsitzung. Prüf zuerst kurz mein Vorwissen.',hide:1}]};
+  const a=await ai(sysTut(),S.tut.msgs.map(m=>({role:m.role,content:m.content})),false);
+  S.tut.msgs.push({role:'assistant',content:a});save();
+}
+async function tutEnd(){
+  const T=S.tut;
+  const tr=T.msgs.filter(m=>!m.hide).map(m=>(m.role==='user'?'SCHÜLER: ':'LEHRER: ')+m.content).join('\n').slice(-9000);
+  const j=await ai('Du bist Lehrer und fasst eine Lernsitzung ehrlich zusammen. Nur gültiges JSON auf Deutsch.',`Thema: ${T.topic}\nVerlauf:\n${tr}\n\nFormat: {"stand":"was er nachweislich verstanden hat","luecken":"was noch unsicher ist","naechster":"nächster sinnvoller Schritt","lernstil":"was über seinen Lernstil erkennbar war"}`);
+  const o=S.topics[T.topic]||{n:0};
+  S.topics[T.topic]={...j,ziel:T.ziel,d:today(),n:(o.n||0)+1};S.tut=null;save();
+  try{await updateProfile()}catch(e){}
+}
+async function debStart(thema){
+  const p=await ai('Antworte ausschließlich mit gültigem JSON auf Deutsch.',`Wähle für ein Debattentraining ${thema?`zum Thema "${thema}"`:'ein kontroverses, alltagsnahes oder gesellschaftliches Thema'} eine klare Streitfrage und eine Position für den KI-Gegner. Format: {"thema":"Streitfrage","pos":"Position der KI","nutzer":"Position des Nutzers"}`);
+  S.deb={thema:p.thema,pos:p.pos,nutzer:p.nutzer,msgs:[],result:null};
+  const a=await ai(debSys(),[{role:'user',content:'Eröffne die Debatte mit deiner stärksten These.'}]);
+  S.deb.msgs.push({role:'assistant',content:a.antwort||'',k:a.kunstgriffe||[]});save();
+}
+async function debEnd(){
+  const D=S.deb;
+  const tr=D.msgs.map(m=>(m.role==='user'?'NUTZER: ':'KI: ')+m.content+(m.k?.length?`  [versteckt: ${m.k.join(', ')}]`:'')).join('\n');
+  const r=await ai('Du bist ein strenger Debatten-Juror und Rhetorik-Lehrer. Antworte ausschließlich mit gültigem JSON auf Deutsch.',`Thema: ${D.thema}\nPosition Nutzer: ${D.nutzer}\nVerlauf:\n${tr}\n\nBewerte den Nutzer. Format: {"punkte":0-10,"fazit":"wer hat überzeugt und warum, 2 Sätze","kunstgriffe":["Name: wo eingesetzt, vom Nutzer erkannt/gekontert oder nicht"],"gut":"...","besser":"konkret","profi":"wie ein Profi diese Debatte gewonnen hätte"}`);
+  r.punkte=Math.max(0,Math.min(10,Math.round(+r.punkte||0)));D.result=r;
+  S.res.push({t:Date.now(),d:today(),cat:'debatte',score:r.punkte,title:'Debatte: '+D.thema,fazit:r.fazit,besser:r.besser});save();
+}
+
+/* ================= Ansichten ================= */
+function head(t,s,p){$('ht').textContent=t;$('hs').textContent=s||'';$('hp').hidden=p==null;if(p!=null)$('hp').firstChild.style.width=p+'%'}
+const btn=(a,label,cls='',bk=a,extra='')=>`<button class="${cls}" data-a="${a}" ${extra} ${busy[bk]?'disabled':''}>${busy[bk]?'<span class="spin"></span>Moment …':label}</button>`;
+const cyc=()=>`<div class="tip" id="cyc" ${busy.cycle?'':'hidden'}><span class="spin"></span>Wochenauswertung läuft im Hintergrund: Profil, Fokus und Plan werden angepasst.</div>`;
+function vLock(){
+  head('Gesperrt','Daten sind verschlüsselt');
+  return `<div class="card"><h2>Passwort eingeben</h2><input id="pw" type="password" autocomplete="current-password"><div class="row"><button class="p" data-a="unlock">Entsperren</button></div><div class="err" id="err"></div></div>`;
+}
+function vHeute(){
+  const d=S.days[today()];
+  if(!d){
+    head('Heute',new Date().toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long'}));
+    const N={10:4,20:6,30:8}[S.set.min];const sun=new Date().getDay()===0;
+    return `${cyc()}${S.set.key?'':'<div class="card"><b>Noch kein API-Key.</b><p class="mut">Unter Einstellungen einen kostenlosen Groq-Key eintragen.</p></div>'}
+    ${S.plan?'':`<div class="card lesson"><div class="kat">Start</div><h2>Erst der Einstufungstest</h2><p>Einmal alle Bereiche, ca. 35–45 Minuten. Danach erstellt die KI deine Einschätzung und den Lernplan.</p><div class="row"><button class="p" data-go="plan">Zum Test</button></div></div>`}
+    <div class="card"><h2>${sun?'Wochenwiederholung':'Training für heute'}</h2><p class="mut">${N} Aufgaben, ca. ${S.set.min} Minuten. ${sun?'Sonntag: die Techniken der Woche in neuen Situationen.':'Die KI wählt die Lektion mit dem größten Nutzen für dich, trainiert gezielt deinen häufigsten Fehler und füllt mit den Bereichen auf, die gerade am meisten bringen.'}</p>
+    <div class="row">${btn('make','Training erstellen','p','make')}</div><div class="err" id="err"></div></div>`;
+  }
+  const done=d.tasks.filter(t=>t.grade).length,tot=d.tasks.length;
+  const pts=d.tasks.reduce((a,t)=>a+(t.grade?.punkte||0),0);
+  head(d.type==='test'?'Einstufungstest':d.type==='review'?'Wochenwiederholung':'Heute',`${done} von ${tot} erledigt${done?` · ${pts} Punkte`:''}`,done/tot*100);
+  const L=d.lesson&&S.tech[d.lesson];
+  return cyc()+(d.type==='test'&&done>=Math.ceil(tot*.6)?`<div class="card lesson"><h2>Genug für die Einschätzung</h2><p class="mut">Im Plan die Einschätzung und den Lernplan erstellen.</p><div class="row"><button class="p" data-go="plan">Zum Plan</button></div></div>`:'')+
+   (L?lessonCard(L,true):'')+d.tasks.map((t,i)=>card(t,i)).join('')+
+   `<div class="card"><div class="row">${btn('remake','Neue Aufgaben für heute','','make')}</div><div class="err" id="err"></div></div>`;
+}
+function lessonCard(L,open){
+  return `<div class="card lesson"><div class="kat">${L.re?'Neu erklärt · ':'Technik des Tages · '}${esc(MOD[L.mod]?.n)}</div><h2>${esc(L.titel)}</h2>${L.grund?`<p class="mut">Warum jetzt: ${esc(L.grund)}</p>`:''}<div class="txt"><b>${esc(L.kern)}</b></div>
+  <details ${open?'open':''}><summary>Lektion</summary>
+  <h3>Wie es wirkt</h3><div class="txt">${esc(L.erklaerung)}</div>
+  <h3>Beispiel</h3><div class="txt">${esc(L.beispiel)}</div>
+  <h3>Erkennen</h3><div class="txt">${esc(L.erkennen)}</div>
+  <h3>Kontern / Anwenden</h3><div class="txt">${esc(L.kontern)}</div>
+  <h3>Was die meisten nicht wissen</h3><div class="txt">${esc(L.profi)}</div></details></div>`;
+}
+function card(t,i){
+  const g=t.grade,b=busy['g'+i];
+  const col=g?(g.punkte>=8?'var(--ok)':g.punkte>=5?'var(--mid)':'var(--bad)'):'';
+  return `<div class="card ${g?'done':''}" id="c${i}">
+  <div class="kat">${esc(CATS[t.kat]?.n)}${t.kat==='technik'?'':' · Stufe '+lvl(t.kat).toFixed(1)}${t.err?' · Fehlertraining':''}</div>
+  <h2>${esc(t.wort||t.titel)}</h2>
+  <div class="txt">${esc(t.aufgabe)}</div>
+  ${t.showTip?`<div class="tip">${t.wort?`<b>Bedeutung:</b> ${esc(t.bedeutung)}`:`<b>Denkanstoß:</b> ${esc(t.tipp)}`}</div>`:''}
+  <label for="a${i}">Deine Antwort</label>
+  <textarea id="a${i}" data-i="${i}" placeholder="Selbst denken, dann schreiben …">${esc(t.ans)}</textarea>
+  <div class="row">${t.showTip?'':`<button data-a="tip" data-i="${i}">${t.wort?'Bedeutung':'Denkanstoß'}</button>`}<button data-a="ask" data-i="${i}">Coach fragen</button>
+  <button class="p" data-a="grade" data-i="${i}" ${b?'disabled':''}>${b?'<span class="spin"></span>KI prüft':g?'Nochmal prüfen':'Abgeben'}</button></div>
+  <div class="err" id="e${i}"></div>
+  ${g?`<div class="fb"><div class="score"><b style="color:${col}">${g.punkte}/10</b><span>${esc(g.fazit)}</span></div>
+  ${g.gut?`<h3>Gut</h3><div class="txt">${esc(g.gut)}</div>`:''}
+  ${g.besser?`<h3>Besser machen</h3><div class="txt">${esc(g.besser)}</div>`:''}
+  ${g.profi?`<h3>Profi-Niveau</h3><div class="txt">${esc(g.profi)}</div>`:''}
+  ${g.fehler?.length?`<h3>Sprache</h3>${li(g.fehler)}`:''}
+  ${g.fehlertypen?.length?`<p class="mut">Ins Fehlerprofil: ${esc(g.fehlertypen.join(', '))}</p>`:''}
+  ${t.wort?`<h3>Bedeutung</h3><div class="txt">${esc(t.bedeutung)}</div>`:''}
+  <details><summary>Musterlösung</summary><div class="txt">${esc(g.muster)}</div></details>
+  <p class="mut">${g.punkte<5?(t.kat==='technik'?'Unter 5 Punkten: Die Technik wird bald neu und anders erklärt. ':'Unter 5 Punkten: kommt als ähnliche Aufgabe wieder. '):''}Nur der erste Versuch zählt.</p></div>`:''}
+  </div>`;
+}
+function vPlan(){
+  head('Lernplan',S.plan?'Stand '+S.plan.d:'Einstufung und Ziele');
+  const P=S.plan,testDay=Object.entries(S.days).filter(([,d])=>d.type==='test').pop();
+  const tdone=testDay?testDay[1].tasks.filter(t=>t.grade).length:0,ttot=testDay?testDay[1].tasks.length:0;
+  const learned=Object.keys(S.tech).length,total=Object.values(MOD).reduce((a,m)=>a+m.l.length,0);
+  const errs=Object.entries(S.err).sort((a,b)=>(a[1].done-b[1].done)||b[1].n-a[1].n);
+  let h=`<div class="card"><h2>Was ich erreichen will</h2><textarea id="goals" style="min-height:150px">${esc(S.goals)}</textarea><p class="mut">Fließt in jede Aufgabe, Lektion, Bewertung und den Plan ein.</p></div>`;
+  h+=`<div class="card"><h2>Einstufungstest</h2>${testDay?`<p>Test vom ${esc(testDay[0])}: ${tdone} von ${ttot} abgegeben.${testDay[0]===today()&&tdone<ttot?' Die Aufgaben stehen unter „Heute“.':''}</p>`:'<p>Eine Aufgabe pro Bereich, mittlere Schwierigkeit, ca. 3 Minuten je Aufgabe. Ersetzt das heutige Training.</p>'}
+  <div class="row">${btn('test',testDay?'Neuen Test starten':'Test starten',testDay?'':'p','make')}
+  ${btn('plan',P?'Plan jetzt aktualisieren':'Einschätzung & Lernplan erstellen','p','plan',(tdone<Math.ceil(ttot*.6)&&S.res.filter(r=>!r.test).length<15)?'disabled':'')}</div>
+  <p class="mut">Nach dem Plan läuft alle 7 Tage automatisch eine Auswertung, die Profil, Fokus und Plan anpasst.</p><div class="err" id="err"></div></div>`;
+  h+=`<div class="card"><h2>Wie die KI dich sieht</h2><p class="mut">Lernerprofil, wird nach Lernsitzungen und wöchentlich aktualisiert. Du kannst es korrigieren.</p><textarea id="profil" style="min-height:120px" placeholder="Entsteht nach den ersten Aufgaben und Lernsitzungen.">${esc(S.profil)}</textarea>
+  <div class="row">${btn('prof','Profil jetzt aktualisieren','','prof',S.res.length<3?'disabled':'')}</div><div class="err" id="perr"></div></div>`;
+  h+=`<div class="card"><h2>Fehlerprofil</h2><p class="mut">Der häufigste offene Fehler bekommt täglich eine gezielte Aufgabe. Zweimal fehlerfrei mit mindestens 7 Punkten gilt er als abgehakt.</p>
+  ${errs.length?errs.slice(0,25).map(([k,e])=>`<div class="erl">${e.done?`<s>${esc(k)}</s>`:`<span>${esc(k)}</span>`}<span class="mut">${e.done?'abgehakt':e.n+'×'}</span></div>`).join(''):'<p class="mut">Noch leer.</p>'}</div>`;
+  if(P){
+    h+=`<div class="card"><h2>Einschätzung</h2><div class="txt">${esc(P.gesamt)}</div>
+    ${(P.bereiche||[]).map(b=>`<div class="bar"><span>${esc(CATS[b.kat]?.n||b.kat)}</span><div><i style="width:${(+b.stufe||0)*20}%"></i></div><span>${esc(b.stufe)}/5</span></div><div class="mut" style="margin:0 0 8px">${esc(b.text)}</div>`).join('')}</div>
+    <div class="card"><h2>Ziele</h2>${(P.ziele||[]).map(z=>`<h3>${esc(z.ziel)}</h3><div class="mut">${esc(z.messbar)}${z.bis?' · '+esc(z.bis):''}</div>`).join('')}</div>
+    <div class="card"><h2>Woche</h2>${li(P.woche)}<h3>Regeln</h3>${li(P.regeln)}<h3>Fallen</h3>${li(P.fallen)}</div>`;
+  }
+  h+=`<div class="card"><h2>Techniken</h2><p class="mut">${learned} von ${total} gelernt. Die KI wählt jeden Tag die wichtigste nächste.</p>
+  ${Object.entries(MOD).map(([k,m])=>{const ls=m.l.map((n,i)=>S.tech[k+':'+i]).filter(Boolean);return `<div class="bar"><span>${esc(m.n.split(':')[0])}</span><div><i style="width:${ls.length/m.l.length*100}%"></i></div><span>${ls.length}/${m.l.length}</span></div>${ls.map(L=>`<details><summary>${esc(L.titel)}${L.relearn?' · wird neu erklärt':''}</summary>${lessonCard(L,true)}</details>`).join('')}`}).join('')}</div>`;
+  return h;
+}
+const msgs=a=>a.filter(m=>!m.hide).map(m=>`<div class="msg ${m.role==='user'?'u':'a'}">${esc(m.content)}</div>`).join('');
+function inputBox(ph,extra){return `<div class="card" style="margin-top:12px"><textarea id="cin" style="min-height:90px" placeholder="${ph}">${esc(S.draft||'')}</textarea><div class="row">${btn('send','Senden','p','coach')}${extra}</div><div class="err" id="err"></div></div>`}
+function vCoach(){
+  head('Coach',{frage:'Fragen und Hilfe',lernen:'Ein Thema richtig lernen',debatte:'Debatte gegen die KI'}[coachMode]);
+  let h=`<div class="seg">${[['frage','Fragen'],['lernen','Thema lernen'],['debatte','Debatte']].map(([m,n])=>`<button data-a="mode" data-m="${m}" class="${coachMode===m?'on':''}">${n}</button>`).join('')}</div>`;
+  if(coachMode==='frage'){
+    h+=(S.ctx?`<div class="ctx"><b>Bezug: ${esc(S.ctx.titel)}</b> <button data-a="noctx" style="min-height:30px;font-size:13px;margin-left:6px">entfernen</button></div>`:'')+
+    (S.chat.length?msgs(S.chat):'<p class="mut">Frag alles. Bei Trainingsaufgaben gibt es erst Denkanstöße, die Lösung nur, wenn du ausdrücklich danach fragst.</p>');
+    return h+inputBox('Deine Frage …','<button data-a="clear">Verlauf leeren</button>');
+  }
+  if(coachMode==='lernen'){
+    const T=S.tut;
+    if(!T){
+      const tp=Object.entries(S.topics).sort((a,b)=>a[1].d<b[1].d?1:-1);
+      return h+`<div class="card"><h2>Neues Thema</h2><p class="mut">Die KI prüft dein Vorwissen, erklärt Schritt für Schritt so, wie es bei dir wirkt, und geht erst weiter, wenn du es nachweislich kannst.</p>
+      <label for="tt">Thema</label><input id="tt" placeholder="z. B. Quantenphysik, Regelungstechnik, Smalltalk auf Englisch">
+      <label for="tz">Was willst du damit können? (optional)</label><input id="tz" placeholder="z. B. verstehen, wie ein Transistor schaltet">
+      <div class="row">${btn('tutstart','Lernsitzung starten','p','coach')}</div><div class="err" id="err"></div></div>
+      ${tp.length?`<div class="card"><h2>Deine Themen</h2>${tp.map(([k,v])=>`<details><summary>${esc(k)} · ${v.n}× · ${esc(v.d)}</summary><p><b>Kann:</b> ${esc(v.stand)}</p><p><b>Lücken:</b> ${esc(v.luecken)}</p><p><b>Nächster Schritt:</b> ${esc(v.naechster)}</p><div class="row"><button class="p" data-a="tutcont" data-t="${esc(k)}">Weitermachen</button></div></details>`).join('')}</div>`:''}`;
+    }
+    return h+`<div class="card"><div class="kat">Lernsitzung</div><h2>${esc(T.topic)}</h2>${T.ziel?`<div class="mut">${esc(T.ziel)}</div>`:''}</div>`+msgs(T.msgs)+
+      inputBox('Antwort oder Frage …',btn('tutend','Sitzung beenden','','coach'));
+  }
+  const D=S.deb;
+  if(!D)return h+`<div class="card"><h2>Debatte</h2><p>Die KI vertritt eine Gegenposition und setzt in jeder Antwort versteckt Kunstgriffe und Fehlschlüsse ein. Erkenne sie, benenne sie, kontere und überzeuge trotzdem. Am Ende deckt sie alles auf und bewertet dich.</p>
+  <label for="thema">Thema (optional)</label><input id="thema" placeholder="leer = KI wählt"><div class="row">${btn('debstart','Debatte starten','p','coach')}</div><div class="err" id="err"></div></div>`;
+  h+=`<div class="card"><div class="kat">Streitfrage</div><h2>${esc(D.thema)}</h2><div class="mut">KI: ${esc(D.pos)}<br>Du: ${esc(D.nutzer)}</div></div>`+msgs(D.msgs);
+  if(D.result){const r=D.result;return h+`<div class="card"><div class="score"><b>${r.punkte}/10</b><span>${esc(r.fazit)}</span></div><h3>Eingesetzte Kunstgriffe</h3>${li(r.kunstgriffe)}<h3>Gut</h3><div class="txt">${esc(r.gut)}</div><h3>Besser</h3><div class="txt">${esc(r.besser)}</div><h3>So hätte ein Profi gewonnen</h3><div class="txt">${esc(r.profi)}</div><div class="row"><button class="p" data-a="debnew">Neue Debatte</button></div></div>`}
+  return h+inputBox('Dein Argument. Erkannten Kunstgriff ruhig benennen.',btn('debend','Beenden & bewerten','','coach'));
+}
+let sp=null;
+function mathQ(){
+  const r=(a,b)=>a+Math.floor(Math.random()*(b-a+1)),t=r(0,4);
+  if(t===0){const a=r(12,49),b=r(3,9);return{type:'m',q:`${a} × ${b}`,a:a*b}}
+  if(t===1){const p=[5,10,15,20,25,30,40][r(0,6)],v=r(4,40)*10;return{type:'m',q:`${p} % von ${v}`,a:p*v/100}}
+  if(t===2){const a=r(120,980),b=r(45,399);return{type:'m',q:`${a} − ${b}`,a:a-b}}
+  if(t===3){const b=r(3,12),a=b*r(6,25);return{type:'m',q:`${a} : ${b}`,a:a/b}}
+  const a=r(13,19);return{type:'m',q:`${a}²`,a:a*a};
+}
+function spQueue(){
+  const sh=a=>a.sort(()=>Math.random()-.5);
+  const due=sh([...sh(S.words.filter(w=>w.due<=today())).slice(0,10).map(w=>({type:'w',w})),...sh(Object.values(S.tech).filter(x=>x.due<=today()&&!x.relearn)).slice(0,6).map(x=>({type:'t',x}))]);
+  const q=[];while(q.length<40){if(due.length)q.push(due.shift());q.push(mathQ())}
+  return q;
+}
+function vSport(){
+  head('Sport','2 Minuten abrufen unter Last');
+  const dw=S.words.filter(w=>w.due<=today()).length,dt=Object.values(S.tech).filter(x=>x.due<=today()&&!x.relearn).length;
+  if(!sp)return `<div class="card"><h2>Abrufen statt Neues denken</h2>
+  <p>Unter körperlicher Last klappt komplexes Denken schlecht, schnelles Abrufen dagegen gut. Hier: Wörter (Bedeutung + Satz laut), Techniken (was ist es, wie konterst du) und Kopfrechnen.</p>
+  <p class="mut">${dw} Wörter und ${dt} Techniken fällig. Laut antworten, aufdecken, ehrlich bewerten.</p>
+  <div class="row"><button class="p" data-a="spstart">2 Minuten starten</button></div></div>`;
+  const left=Math.max(0,Math.ceil((sp.end-Date.now())/1000));
+  if(!left||sp.i>=sp.q.length)return `<div class="card"><h2>Fertig</h2><p>${sp.ok} von ${sp.n} gewusst.</p><div class="row"><button class="p" data-a="spreset">Zurück</button></div></div>`;
+  const c=sp.q[sp.i];
+  const lab={w:'Wort: Bedeutung + Satz laut sagen',t:'Technik: erklären + Konter sagen',m:'Kopfrechnen'}[c.type];
+  const front=c.type==='w'?c.w.w:c.type==='t'?c.x.titel:c.q;
+  const back=c.type==='w'?c.w.m:c.type==='t'?c.x.kern+'\n\nKonter: '+c.x.kontern:'= '+c.a;
+  return `<div class="card"><div class="timer" id="tm">${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}</div>
+  <div class="kat">${lab}</div><div class="big">${esc(front)}</div>
+  ${sp.show?`<div class="tip txt" style="font-size:17px">${esc(back)}</div><div class="row"><button data-a="spno">Nicht gewusst</button><button class="p" data-a="spyes">Gewusst</button></div>`
+  :`<div class="row"><button class="p" data-a="spshow">Aufdecken</button></div>`}</div>`;
+}
+function spAnswer(ok){
+  const c=sp.q[sp.i];sp.n++;if(ok)sp.ok++;
+  const o=c.type==='w'?c.w:c.type==='t'?c.x:null;
+  if(o){o.box=ok?Math.min(5,(o.box||1)+1):1;o.due=addDays(today(),[1,1,3,7,14,30][o.box]);save()}
+  sp.i++;sp.show=false;render();
+}
+function vStand(){
+  head('Fortschritt','');
+  const days=new Set(S.res.map(r=>r.d));let streak=0,d=today();
+  if(!days.has(d))d=addDays(d,-1);
+  while(days.has(d)){streak++;d=addDays(d,-1)}
+  const avg=a=>a.length?a.reduce((x,y)=>x+y.score,0)/a.length:0;
+  const bars=[...DAILY,'technik','debatte'].map(k=>{const r=S.res.filter(x=>x.cat===k).slice(-10),a=avg(r);
+    return `<div class="bar"><span>${esc(CATS[k].n)}</span><div><i style="width:${a*10}%"></i></div><span>${r.length?a.toFixed(1):'–'}</span></div>`}).join('');
+  const A=S.ana;
+  return `<div class="stats"><div><b>${streak}</b><span>Tage in Folge</span></div><div><b>${S.res.length}</b><span>Aufgaben</span></div><div><b>${S.words.length}</b><span>Wörter</span></div><div><b>${Object.keys(S.tech).length}</b><span>Techniken</span></div></div>
+  <div class="card" style="margin-top:14px"><h2>Ø Punkte je Bereich</h2><p class="mut">Letzte 10 pro Bereich. Ziel: um 7. Darüber wird es schwerer, darunter leichter.</p>${bars}</div>
+  <div class="card"><h2>KI-Auswertung</h2>
+  ${A?`<p class="mut">Stand ${esc(A.d)}</p><div class="txt">${esc(A.zusammenfassung)}</div>${A.staerken?.length?`<h3>Stärken</h3>${li(A.staerken)}`:''}${A.schwaechen?.length?`<h3>Fehlermuster</h3>${li(A.schwaechen)}`:''}${A.fokus?.length?`<h3>Fokus (fließt in neue Aufgaben ein)</h3>${li(A.fokus)}`:''}`
+  :'<p class="mut">Läuft automatisch einmal pro Woche, sobald genug Ergebnisse da sind.</p>'}
+  <div class="row">${btn('ana','Jetzt auswerten','','ana',S.res.length<3?'disabled':'')}</div><div class="err" id="err"></div></div>
+  <div class="card"><h2>Gelernte Wörter</h2>${S.words.length?S.words.slice().reverse().map(w=>`<details><summary>${esc(w.w)}</summary><div class="txt mut">${esc(w.m)}</div></details>`).join(''):'<p class="mut">Noch keine.</p>'}</div>
+  <div class="card"><h2>Verlauf</h2>${S.res.slice(-20).reverse().map(r=>`<div class="bar"><span>${esc(r.d.slice(5))}</span><span>${esc(r.title)}</span><span>${r.score}</span></div>`).join('')||'<p class="mut">Noch leer.</p>'}</div>`;
+}
+function vSetup(){
+  head('Einstellungen','KI, Umfang, Datenschutz');
+  const s=S.set;
+  return `<div class="card"><h2>KI-Modell</h2>
+  <label for="prov">Anbieter</label><select id="prov"><option value="groq">Groq (gratis, schnell, empfohlen)</option><option value="openrouter">OpenRouter (Gratis-Modelle)</option><option value="eigen">Eigene Adresse (z. B. später KAIRO)</option></select>
+  <label for="base">API-Adresse</label><input id="base" value="${esc(s.base)}" autocomplete="off">
+  <label for="model">Modell</label><input id="model" value="${esc(s.model)}" autocomplete="off">
+  <label for="key">API-Key</label><input id="key" type="password" value="${esc(s.key)}" autocomplete="off" placeholder="gsk_…">
+  <div class="row">${btn('test2','Verbindung testen','','test')}</div><div class="err" id="err"></div></div>
+  <div class="card"><h2>Datenschutz</h2>
+  <ul><li>Alles liegt nur auf diesem Handy. Es gibt keinen Server, kein Konto, kein Tracking und keine fremden Schriften oder Skripte.</li>
+  <li>Nur Aufgaben, Antworten und Chat gehen verschlüsselt (HTTPS) an den KI-Anbieter. Name, Adresse oder Telefonnummer werden nicht gesendet, nur Vorname und „Über mich“.</li>
+  <li>Bei Groq unter console.groq.com → Settings → Data Controls <b>Zero Data Retention</b> einschalten. Dann speichert Groq nichts.</li>
+  <li>Mit App-Sperre ist alles auf dem Handy mit AES-256 verschlüsselt. Nach 5 Minuten im Hintergrund sperrt die App sich automatisch.</li></ul>
+  ${K?`<p class="okm">App-Sperre ist aktiv.</p><div class="row"><button class="p" data-a="locknow">Jetzt sperren</button><button data-a="lockoff">Sperre entfernen</button></div>`
+  :`<label for="pw1">Passwort für die App-Sperre (mind. 8 Zeichen)</label><input id="pw1" type="password" autocomplete="new-password"><label for="pw2">Wiederholen</label><input id="pw2" type="password" autocomplete="new-password">
+  <p class="mut">Passwort vergessen heißt: Daten weg, außer du hast ein Backup.</p><div class="row"><button class="p" data-a="lockon">App-Sperre aktivieren</button></div>`}<div class="err" id="lerr"></div></div>
+  <div class="card"><h2>Umfang</h2>
+  <label for="min">Zeit pro Tag</label><select id="min"><option value="10">10 Minuten (4 Aufgaben)</option><option value="20">20 Minuten (6 Aufgaben)</option><option value="30">30 Minuten (8 Aufgaben)</option></select>
+  <label for="words">Neue Wörter pro Tag</label><select id="words"><option value="1">1</option><option value="2">2</option></select>
+  <label for="lang">Fremdsprache</label><input id="lang" value="${esc(s.lang)}">
+  <label for="name">Vorname</label><input id="name" value="${esc(s.name)}">
+  <label for="about">Über mich</label><textarea id="about" style="min-height:80px">${esc(s.about)}</textarea></div>
+  <div class="card"><h2>Bereiche</h2>${DAILY.map(k=>`<label class="chk"><input type="checkbox" data-cat="${k}" ${s.cats[k]?'checked':''}>${esc(CATS[k].n)}</label>`).join('')}</div>
+  <div class="card"><h2>Sicherung</h2><p class="mut">Das Backup ist unverschlüsselt und ohne API-Key. Sicher aufbewahren.</p>
+  <div class="row"><button data-a="exp">Backup kopieren</button><button data-a="dl">Als Datei</button></div>
+  <label for="imp">Backup einfügen</label><textarea id="imp" style="min-height:70px"></textarea>
+  <div class="row"><button data-a="imp">Wiederherstellen</button></div><div class="mut" id="bk"></div>
+  <div class="row"><button data-a="wipe">Alle Daten auf diesem Handy löschen</button></div></div>`;
+}
+function render(){
+  document.body.classList.toggle('locked',locked);
+  const V={lock:vLock,heute:vHeute,plan:vPlan,coach:vCoach,sport:vSport,stand:vStand,setup:vSetup}[locked?'lock':view];
+  $('v').innerHTML=V();
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===view));
+  if(view==='setup'&&!locked){$('prov').value=S.set.prov;$('min').value=S.set.min;$('words').value=S.set.words}
+}
+const showErr=(id,e)=>{const el=$(id);if(el)el.textContent=e.message||String(e)};
+const go=v=>{if(locked)return;view=v;render();scrollTo(0,0)};
+async function run(key,fn,errId='err'){busy[key]=1;render();try{await fn();busy[key]=0;render();return true}catch(e){busy[key]=0;render();showErr(errId,e);return false}}
+
+/* ================= Events ================= */
+document.body.addEventListener('click',e=>{const b=e.target.closest('[data-go],nav button');if(b)go(b.dataset.go||b.dataset.v)});
+$('v').addEventListener('input',e=>{
+  if(locked)return;const t=e.target;
+  if(t.dataset.i!=null){S.days[today()].tasks[+t.dataset.i].ans=t.value;save();return}
+  if(t.id==='goals'){S.goals=t.value;save();return}
+  if(t.id==='profil'){S.profil=t.value;save();return}
+  if(t.id==='cin'){S.draft=t.value;save();return}
+  if(view==='setup'&&['base','model','key','lang','about','name'].includes(t.id)){S.set[t.id]=t.value;save()}
+});
+$('v').addEventListener('change',e=>{
+  if(locked)return;const t=e.target;
+  if(t.dataset.cat){S.set.cats[t.dataset.cat]=t.checked;save()}
+  if(t.id==='prov'){S.set.prov=t.value;if(PRESETS[t.value].base){S.set.base=PRESETS[t.value].base;S.set.model=PRESETS[t.value].model}save();render()}
+  if(t.id==='min'||t.id==='words'){S.set[t.id]=+t.value;save()}
+});
+$('v').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='pw')$('v').querySelector('[data-a=unlock]')?.click()});
+$('v').addEventListener('click',async e=>{
+  const b=e.target.closest('button[data-a]');if(!b||b.disabled)return;
+  const a=b.dataset.a,i=+b.dataset.i;
+  if(a==='unlock'){try{b.disabled=true;await unlock($('pw').value);view='heute';render();maybeCycle()}catch(err){b.disabled=false;showErr('err',err)}return}
+  if(locked)return;
+  if(a==='make'||a==='remake'){if(a==='remake'&&!confirm('Heutige Aufgaben ersetzen? Gezählte Ergebnisse bleiben.'))return;await run('make',()=>makeDay('normal'))}
+  if(a==='test'){if(S.days[today()]&&!confirm('Heutiges Training durch den Einstufungstest ersetzen?'))return;if(await run('make',()=>makeDay('test')))go('heute')}
+  if(a==='plan')await run('plan',makePlan);
+  if(a==='prof')await run('prof',updateProfile,'perr');
+  if(a==='tip'){S.days[today()].tasks[i].showTip=true;save();render();$('c'+i)?.scrollIntoView({block:'nearest'})}
+  if(a==='ask'){const t=S.days[today()].tasks[i];S.ctx={titel:t.wort||t.titel,aufgabe:t.aufgabe+(t.grade?`\n(Bereits abgegeben, Bewertung ${t.grade.punkte}/10: ${t.grade.besser})`:'')};coachMode='frage';save();go('coach');$('cin')?.focus()}
+  if(a==='grade'){
+    const t=S.days[today()].tasks[i];
+    if(t.ans.trim().length<10){showErr('e'+i,new Error('Erst eine richtige Antwort schreiben.'));return}
+    busy['g'+i]=1;render();$('c'+i)?.scrollIntoView({block:'start'});
+    try{await grade(i);busy['g'+i]=0;render();$('c'+i)?.scrollIntoView({block:'start'})}catch(err){busy['g'+i]=0;render();showErr('e'+i,err)}
+  }
+  if(a==='ana')await run('ana',analyse);
+  if(a==='test2'){const ok=await run('test',async()=>{const j=await ai('Antworte nur mit JSON.','Gib {"ok":true} zurück.');if(!j.ok)throw new Error('Antwort unerwartet.')});if(ok){$('err').className='okm';$('err').textContent='Verbindung steht.'}}
+  if(a==='mode'){coachMode=b.dataset.m;render()}
+  if(a==='noctx'){S.ctx=null;save();render()}
+  if(a==='clear'){S.chat=[];S.ctx=null;save();render()}
+  if(a==='send'){const text=($('cin').value||'').trim();if(!text)return;if(coachMode==='debatte'&&!S.deb)return;if(coachMode==='lernen'&&!S.tut)return;S.draft='';
+    if(!(await run('coach',()=>coachSend(text)))){S.draft=text;save();$('cin').value=text}scrollTo(0,document.body.scrollHeight)}
+  if(a==='tutstart'){const tp=($('tt').value||'').trim();if(!tp){showErr('err',new Error('Thema eingeben.'));return}await run('coach',()=>tutStart(tp,($('tz').value||'').trim()))}
+  if(a==='tutcont'){const tp=b.dataset.t;await run('coach',()=>tutStart(tp,S.topics[tp]?.ziel||''))}
+  if(a==='tutend'){if(S.tut.msgs.filter(m=>m.role==='user'&&!m.hide).length<1){S.tut=null;save();render();return}await run('coach',tutEnd)}
+  if(a==='debstart')await run('coach',()=>debStart(($('thema')?.value||'').trim()));
+  if(a==='debend'){if(S.deb.msgs.filter(m=>m.role==='user').length<2){showErr('err',new Error('Erst mindestens zwei Argumente bringen.'));return}await run('coach',debEnd)}
+  if(a==='debnew'){S.deb=null;save();render()}
+  if(a==='spstart'){sp={q:spQueue(),i:0,ok:0,n:0,show:false,end:Date.now()+120000};render();sp.tick=setInterval(()=>{const l=Math.max(0,Math.ceil((sp.end-Date.now())/1000));const tm=$('tm');if(!l){clearInterval(sp.tick);if(view==='sport')render()}else if(tm)tm.textContent=Math.floor(l/60)+':'+String(l%60).padStart(2,'0')},250)}
+  if(a==='spshow'){sp.show=true;render()}
+  if(a==='spyes')spAnswer(true);
+  if(a==='spno')spAnswer(false);
+  if(a==='spreset'){clearInterval(sp?.tick);sp=null;render()}
+  if(a==='lockon'){const p1=$('pw1').value,p2=$('pw2').value;if(p1.length<8)return showErr('lerr',new Error('Mindestens 8 Zeichen.'));if(p1!==p2)return showErr('lerr',new Error('Passwörter stimmen nicht überein.'));SALT=crypto.getRandomValues(new Uint8Array(16));K=await derive(p1,SALT);await saveNow();render()}
+  if(a==='lockoff'){if(!confirm('Sperre entfernen? Daten liegen dann unverschlüsselt auf dem Handy.'))return;K=null;SALT=null;await saveNow();render()}
+  if(a==='locknow'){clearTimeout(st);await saveNow();location.reload()}
+  if(a==='wipe'){if(!confirm('Wirklich ALLE Daten löschen? Das kann nicht rückgängig gemacht werden.'))return;locked=true;localStorage.removeItem('dt');localStorage.removeItem('dtx');location.reload()}
+  const bk={...S,set:{...S.set,key:''}};
+  if(a==='exp'){try{await navigator.clipboard.writeText(JSON.stringify(bk));$('bk').textContent='Kopiert (ohne API-Key).'}catch(err){$('imp').value=JSON.stringify(bk);$('bk').textContent='Kopieren ging nicht, Backup steht im Feld.'}}
+  if(a==='dl'){const u=URL.createObjectURL(new Blob([JSON.stringify(bk)],{type:'application/json'}));const l=document.createElement('a');l.href=u;l.download='denktraining-'+today()+'.json';l.click();setTimeout(()=>URL.revokeObjectURL(u),2000)}
+  if(a==='imp'){try{const d=JSON.parse($('imp').value);if(!d.res||!d.set)throw 0;const key=S.set.key;S=merge(d);if(!S.set.key)S.set.key=key;save();render();$('bk').textContent='Wiederhergestellt.'}catch(err){$('bk').textContent='Ungültiges Backup.'}}
+});
+render();
+if(!locked)maybeCycle();
+try{navigator.storage?.persist?.()}catch(e){}
+if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
