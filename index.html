@@ -171,10 +171,10 @@ async function ai(sys,msgs,json=true){
   const body={model:s.model,messages:[{role:'system',content:sys},...msgs],temperature:.8};
   if(json)body.response_format={type:'json_object'};
   if((/gpt-oss/.test(s.model)&&/groq/.test(s.base))||/googleapis/.test(s.base))body.reasoning_effort='low';
-  const go=()=>fetch(s.base.replace(/\/$/,'')+'/chat/completions',{method:'POST',referrerPolicy:'no-referrer',headers:{'Content-Type':'application/json',Authorization:'Bearer '+s.key},body:JSON.stringify(body)});
+  const go=()=>{const ac=new AbortController();const to=setTimeout(()=>ac.abort(),90000);return fetch(s.base.replace(/\/$/,'')+'/chat/completions',{signal:ac.signal,method:'POST',referrerPolicy:'no-referrer',headers:{'Content-Type':'application/json',Authorization:'Bearer '+s.key},body:JSON.stringify(body)}).finally(()=>clearTimeout(to))};
   let r;
   for(let tries=0;;tries++){
-    try{r=await go()}catch(e){throw new Error('Keine Verbindung zur KI. Internet oder Adresse prüfen.')}
+    try{r=await go()}catch(e){if(e.name==='AbortError'&&tries<1){continue}throw new Error(e.name==='AbortError'?'Die KI hat zu lange nicht geantwortet. Nochmal versuchen oder ein anderes Modell wählen.':'Keine Verbindung zur KI. Internet oder Adresse prüfen.')}
     if(r.status===400&&body.response_format){delete body.response_format;delete body.reasoning_effort;continue}
     if(r.status===429&&tries<2){const ra=+r.headers.get('retry-after')||15;await sleep(Math.min(40,ra)*1000+500);continue}
     if([500,502,503,504].includes(r.status)&&tries<4){
@@ -241,8 +241,9 @@ async function genTasks(slots,per){
 async function makeDay(type){
   const t=today();
   if(type==='test'){
-    const all=DAILY.filter(k=>S.set.cats[k]).map(k=>({k,lv:3})),h=Math.ceil(all.length/2);
-    const tasks=[...await genTasks(all.slice(0,h),3),...await genTasks(all.slice(h),3)];
+    const all=DAILY.filter(k=>S.set.cats[k]).map(k=>({k,lv:3})),tasks=[];
+    for(let i=0;i<all.length;i+=4){setProg(`Aufgaben ${i}/${all.length} erstellt …`);tasks.push(...await genTasks(all.slice(i,i+4),3))}
+    setProg('');
     S.days[t]={type:'test',tasks,lesson:null};save();return;
   }
   const N={10:4,20:6,30:8}[S.set.min]||6;
@@ -401,7 +402,8 @@ async function debEnd(){
 
 /* ================= Ansichten ================= */
 function head(t,s,p){$('ht').textContent=t;$('hs').textContent=s||'';$('hp').hidden=p==null;if(p!=null)$('hp').firstChild.style.width=p+'%'}
-const btn=(a,label,cls='',bk=a,extra='')=>`<button class="${cls}" data-a="${a}" ${extra} ${busy[bk]?'disabled':''}>${busy[bk]?'<span class="spin"></span>Moment …':label}</button>`;
+let prog='';const setProg=t=>{prog=t;document.querySelectorAll('.pg').forEach(e=>e.textContent=t||'Moment …')};
+const btn=(a,label,cls='',bk=a,extra='')=>`<button class="${cls}" data-a="${a}" ${extra} ${busy[bk]?'disabled':''}>${busy[bk]?`<span class="spin"></span><span class="pg">${prog||'Moment …'}</span>`:label}</button>`;
 const cyc=()=>`<div class="tip" id="cyc" ${busy.cycle?'':'hidden'}><span class="spin"></span>Wochenauswertung läuft im Hintergrund: Profil, Fokus und Plan werden angepasst.</div>`;
 function vLock(){
   head('Gesperrt','Daten sind verschlüsselt');
