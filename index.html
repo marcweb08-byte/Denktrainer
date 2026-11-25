@@ -166,8 +166,8 @@ const prof=()=>`Nutzer: ${S.set.name}, ${S.set.about}\nZiele: ${S.goals}${pathCt
 
 /* ================= KI ================= */
 function fixJ(t){let o='',q=false,e=false;for(const ch of t){if(q){if(e){e=false;o+=ch;continue}if(ch==='\\'){e=true;o+=ch;continue}if(ch==='"'){q=false;o+=ch;continue}if(ch==='\n'){o+='\\n';continue}if(ch==='\r')continue;if(ch==='\t'){o+='\\t';continue}o+=ch}else{if(ch==='"')q=true;o+=ch}}return o.replace(/,\s*([}\]])/g,'$1')}
-function parseJ(c){c=String(c).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```(json)?/g,'');const a=c.indexOf('{'),b=c.lastIndexOf('}');if(a<0||b<a)throw new Error('BADJSON');const t=c.slice(a,b+1);try{return JSON.parse(t)}catch(e){try{return JSON.parse(fixJ(t))}catch(e2){throw new Error('BADJSON')}}}
-const VER='15';
+function parseJ(c){c=String(c).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```(json)?/g,'');const ia=c.indexOf('['),io=c.indexOf('{');const arr=ia>=0&&(io<0||ia<io);const a=arr?ia:io,b=arr?c.lastIndexOf(']'):c.lastIndexOf('}');if(a<0||b<a)throw new Error('BADJSON');const t=c.slice(a,b+1);try{return JSON.parse(t)}catch(e){try{return JSON.parse(fixJ(t))}catch(e2){throw new Error('BADJSON')}}}
+const VER='16';
 const GMODELS=['gemini-flash-lite-latest','gemini-3.1-flash-lite','gemini-3.5-flash-lite','gemini-2.5-flash-lite','gemini-flash-latest'];
 let lastCall=0;
 async function ai(sys,msgs,json=true,retry=false){
@@ -177,6 +177,7 @@ async function ai(sys,msgs,json=true,retry=false){
   if(typeof msgs==='string')msgs=[{role:'user',content:msgs}];
   const body={model:s.model,messages:[{role:'system',content:sys},...msgs],temperature:.8};
   if(json)body.response_format={type:'json_object'};
+  if(/googleapis/.test(s.base))body.max_tokens=8192;
   if((/gpt-oss/.test(s.model)&&/groq/.test(s.base))||/googleapis/.test(s.base))body.reasoning_effort='low';
   if(/googleapis/.test(s.base)){const w=lastCall+7000-Date.now();if(w>0)await sleep(w)}lastCall=Date.now();
   const go=()=>{const ac=new AbortController();const to=setTimeout(()=>ac.abort(),90000);return fetch(s.base.replace(/\/$/,'')+'/chat/completions',{signal:ac.signal,method:'POST',referrerPolicy:'no-referrer',headers:{'Content-Type':'application/json',Authorization:'Bearer '+s.key},body:JSON.stringify(body)}).finally(()=>clearTimeout(to))};
@@ -197,11 +198,11 @@ async function ai(sys,msgs,json=true,retry=false){
   if(r.status===429)throw new Error('Limit der Gratis-API erreicht. Eine Minute warten und nochmal versuchen.');
   if([500,502,503,504].includes(r.status))throw new Error('Die KI ist gerade überlastet (Fehler '+r.status+'). In ein paar Minuten nochmal versuchen.');
   if(!r.ok)throw new Error('Fehler '+r.status+': '+(await r.text()).slice(0,240));
-  let c='';try{const raw=await r.text();c=JSON.parse(raw).choices?.[0]?.message?.content||''}catch(e){if(!retry)return ai(sys,msgs,json,true);throw new Error('Die KI-Antwort kam unvollständig an. Bitte nochmal versuchen.')}
+  let c='',fin='';try{const raw=await r.text();const jj=JSON.parse(raw);c=jj.choices?.[0]?.message?.content||'';fin=jj.choices?.[0]?.finish_reason||''}catch(e){if(!retry)return ai(sys,msgs,json,true);throw new Error('Die KI-Antwort kam unvollständig an. Bitte nochmal versuchen.')}
   if(!json)return c.replace(/<think>[\s\S]*?<\/think>/g,'').trim();
   try{return parseJ(c)}catch(e){
     if(!retry)return ai(sys,[...msgs,{role:'assistant',content:c.slice(0,2000)},{role:'user',content:'Das war kein gültiges JSON. Gib dieselbe Antwort nochmal, ausschließlich als gültiges JSON ohne Text davor oder danach, kürzer formuliert.'}],true,true);
-    throw new Error('Die KI hat eine unlesbare Antwort geliefert. Bitte nochmal versuchen.')}
+    throw new Error('Die KI hat eine unlesbare Antwort geliefert. Bitte nochmal versuchen.\nAnfang der Antwort: '+(c.trim().slice(0,160)||'(leer)')+(fin?' · Ende: '+fin:''))}
 }
 const sysTrainer=per=>`Du bist ein anspruchsvoller persönlicher Trainer für logisches Denken, Sprache, Rhetorik und soziale Kompetenz. Ziel ist der größtmögliche echte Fortschritt. ${PRIO}
 ${prof()}
@@ -249,7 +250,7 @@ async function genTasks(slots,per){
   const list=slots.map((s,i)=>`${i+1}. kat="${s.k}" (${CATS[s.k].n}), Schwierigkeit ${(s.lv??lvl(s.k)).toFixed(1)}/5: ${s.desc||CATS[s.k].d}${s.transfer?` TRANSFER: Baue die Situation so, dass die früher gelernte Technik "${s.transfer}" nützlich ist, ohne sie zu nennen.`:''}`).join('\n');
   const user=`Erstelle diese ${slots.length} Aufgaben, in genau dieser Reihenfolge:\n${list}\n\nBereits gelernte Wörter (nicht wiederholen): ${known}\nLetzte Aufgaben (Themen nicht wiederholen): ${recent}${fokus}\n\nFormat:\n{"aufgaben":[{"kat":"...","titel":"kurzer Titel","aufgabe":"vollständiger Aufgabentext","tipp":"Denkanstoß, der NICHT die Lösung verrät","kriterien":"woran eine sehr gute Antwort erkennbar ist, inkl. richtiger Lösung falls es eine gibt","wort":"nur bei wort","bedeutung":"nur bei wort"}]}`;
   const j=await ai(sysTrainer(per),user);
-  const out=(j.aufgaben||[]).slice(0,slots.length).map((a,i)=>({...a,kat:slots[i].k,err:slots[i].err,transfer:slots[i].transfer,ans:'',grade:null,showTip:false}));
+  const out=(Array.isArray(j)?j:(j.aufgaben||Object.values(j).find(Array.isArray)||[])).slice(0,slots.length).map((a,i)=>({...a,kat:slots[i].k,err:slots[i].err,transfer:slots[i].transfer,ans:'',grade:null,showTip:false}));
   if(!out.length)throw new Error('Das Modell hat keine Aufgaben geliefert. Nochmal versuchen.');
   return out;
 }
