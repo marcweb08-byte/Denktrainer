@@ -120,7 +120,13 @@ const MISSIONS=['Stell heute einer Person, mit der du sonst nur kurz redest, ein
 const PRIO='Priorität nach Alltagsnutzen: 1. Smalltalk und souveränes Gesprächsverhalten, 2. sich präzise, geordnet und schön ausdrücken, 3. klar denken und Probleme lösen, 4. überzeugen, argumentieren, Kunstgriffe erkennen und kontern, danach der Rest.';
 const PRESETS={groq:{base:'https://api.groq.com/openai/v1',model:'openai/gpt-oss-120b'},gemini:{base:'https://generativelanguage.googleapis.com/v1beta/openai',model:'gemini-flash-lite-latest'},openrouter:{base:'https://openrouter.ai/api/v1',model:'openai/gpt-oss-120b:free'},eigen:{base:'',model:''}};
 const GOALS='Logischer denken (Mathe, Physik, Mechatronik) und bei jedem Problem sehr gute Lösungsansätze finden. Smalltalk sicher beherrschen. Gedanken geordnet, präzise und schön ausdrücken, auch Prompts. In Alltagssituationen (Stress, Ärger) souverän reagieren. Argumentieren, überzeugen, Diskussionen gewinnen, Rhetorische Kunstgriffe, Fehlschlüsse und Manipulation (z. B. Schopenhauer, aber nicht nur) erkennen, kontern und selbst beherrschen. Menschen analysieren, Profile erstellen, Fälle lösen, das Gesamtbild sehen. Rechtschreibung, Fremdsprache, Allgemeinwissen, Einstellungstests. Nicht nur Oberfläche, sondern Fortgeschrittenes, das die wenigsten können, und es wirklich anwenden können.';
-const DEF={set:{prov:'groq',base:PRESETS.groq.base,model:PRESETS.groq.model,key:'',min:20,words:1,lang:'Englisch',name:'Marc',about:'18 Jahre, duales Maschinenbau-Studium, Freelance-Webentwickler, Ju-Jutsu-Trainerassistent.',cats:Object.fromEntries(DAILY.map(k=>[k,true]))},goals:GOALS,days:{},res:[],words:[],lvl:{},ana:null,plan:null,tech:{},techN:0,chat:[],deb:null,ctx:null,profil:'',err:{},tut:null,topics:{},lastCycle:'',paths:[],missions:{},rp:null,lastBackup:''};
+const DEF={set:{prov:'groq',base:PRESETS.groq.base,model:PRESETS.groq.model,key:'',min:20,words:1,lang:'Englisch',name:'Marc',about:'18 Jahre, duales Maschinenbau-Studium, Freelance-Webentwickler, Ju-Jutsu-Trainerassistent.',cats:Object.fromEntries(DAILY.map(k=>[k,true]))},goals:GOALS,days:{},res:[],words:[],lvl:{},ana:null,plan:null,tech:{},techN:0,chat:[],deb:null,ctx:null,profil:'',err:{},tut:null,topics:{},lastCycle:'',paths:[],missions:{},rp:null,lastBackup:'',goalQ:null};
+const GOALQ=[
+{ziel:'Überzeugen, argumentieren und Diskussionen gewinnen; rhetorische Kunstgriffe, Fehlschlüsse und Manipulation erkennen und kontern',vorbild:'Top-Strafverteidiger bzw. Prozessanwalt',wofuer:'Diskussionen, Verhandlungen, Kunden, Bewerbungen',niveau:'in 3 Monaten deutlich überzeugender, Tricks sofort erkennen'},
+{ziel:'Logisch denken und technische Probleme in Mathe, Physik und Mechatronik mit sehr guten Lösungsansätzen lösen; eigene Konstruktionen entwickeln',vorbild:'Entwicklungsingenieur / Erfinder (wie Tony Stark, real: Spitzen-Ingenieur)',wofuer:'Maschinenbau-Studium, eigene Projekte',niveau:'in 6 Monaten Probleme strukturiert und kreativ lösen'},
+{ziel:'Menschen lesen, Verhalten analysieren, Profile erstellen und Fälle lösen, das Gesamtbild sehen',vorbild:'Profiler / Verhörexperte (wie Sherlock, real: Kriminalpsychologe)',wofuer:'Menschenkenntnis im Alltag, Gespräche, Manipulation erkennen',niveau:'in 3 Monaten deutlich treffsicherer'},
+{ziel:'Smalltalk sicher beherrschen und in Alltagssituationen (Stress, Ärger, Kritik) souverän reagieren, respektiert werden',vorbild:'sehr guter Gastgeber, Top-Verkäufer, souveräne Führungskraft',wofuer:'neue Leute, Arbeit, Training, Familie',niveau:'in 2 Monaten Gespräche locker führen'},
+{ziel:'Gedanken geordnet, präzise und schön ausdrücken, schriftlich und mündlich, auch strukturierte Prompts für KI schreiben',vorbild:'guter Journalist / Redenschreiber',wofuer:'Studium, Arbeit, KI-Nutzung, Diskussionen',niveau:'in 3 Monaten klar und auf den Punkt'}];
 
 /* ================= Speicher & Verschlüsselung ================= */
 const enc=new TextEncoder(),dec=new TextDecoder();
@@ -167,7 +173,7 @@ const prof=()=>`Nutzer: ${S.set.name}, ${S.set.about}\nZiele: ${S.goals}${pathCt
 /* ================= KI ================= */
 function fixJ(t){let o='',q=false,e=false;for(const ch of t){if(q){if(e){e=false;o+=ch;continue}if(ch==='\\'){e=true;o+=ch;continue}if(ch==='"'){q=false;o+=ch;continue}if(ch==='\n'){o+='\\n';continue}if(ch==='\r')continue;if(ch==='\t'){o+='\\t';continue}o+=ch}else{if(ch==='"')q=true;o+=ch}}return o.replace(/,\s*([}\]])/g,'$1')}
 function parseJ(c){c=String(c).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```(json)?/g,'');const ia=c.indexOf('['),io=c.indexOf('{');const arr=ia>=0&&(io<0||ia<io);const a=arr?ia:io,b=arr?c.lastIndexOf(']'):c.lastIndexOf('}');if(a<0||b<a)throw new Error('BADJSON');const t=c.slice(a,b+1);try{return JSON.parse(t)}catch(e){try{return JSON.parse(fixJ(t))}catch(e2){throw new Error('BADJSON')}}}
-const VER='16';
+const VER='17';
 const GMODELS=['gemini-flash-lite-latest','gemini-3.1-flash-lite','gemini-3.5-flash-lite','gemini-2.5-flash-lite','gemini-flash-latest'];
 let lastCall=0;
 async function ai(sys,msgs,json=true,retry=false){
@@ -339,6 +345,11 @@ Ziel: ${f.ziel}. Vorbild/Maßstab: ${f.vorbild||'-'}.
     const c=JSON.parse(await r.text()).choices?.[0]?.message?.content||'';
     return c.trim()?c:null;
   }catch(e){return null}
+}
+async function runGoalQ(all){
+  const q=S.goalQ;if(!q?.length)return;
+  const list=all?q.slice():[q[0]];
+  for(const g of list){await makePath({...g});S.goalQ=S.goalQ.filter(x=>x!==g);save()}
 }
 async function makePath(f){
   setProg('Suche Fachgebiete …');
@@ -567,7 +578,11 @@ function vPlan(){
   const tdone=testDay?testDay[1].tasks.filter(t=>t.grade).length:0,ttot=testDay?testDay[1].tasks.length:0;
   const learned=Object.keys(S.tech).filter(k=>!k.startsWith('frei:')).length,total=Object.values(MOD).reduce((a,m)=>a+m.l.length,0);
   const errs=Object.entries(S.err).sort((a,b)=>(a[1].done-b[1].done)||b[1].n-a[1].n);
-  let h=`<div class="card lesson"><h2>Meine Ziele</h2><p class="mut">Was willst du können? Die KI analysiert, was echte Profis darin können, und baut daraus einen Lernpfad mit Fachwissen, Quellen und Beleglage.</p>
+  if(S.goalQ==null){S.goalQ=S.paths.length?[]:GOALQ.map(g=>({...g}));save()}
+  let h=(S.goalQ.length?`<div class="card lesson"><h2>Deine Ziele, schon eingetragen</h2><p class="mut">Aus unserem Gespräch übernommen. Sie bleiben gespeichert, bis daraus ein Lernpfad entstanden ist. Ein Lernpfad dauert etwa 1 Minute.</p>
+  ${S.goalQ.map((g,j)=>`<details><summary>${j+1}. ${esc(g.ziel.split(';')[0])}</summary><p class="mut">So gut wie: ${esc(g.vorbild)}<br>Wofür: ${esc(g.wofuer)}<br>Ziel: ${esc(g.niveau)}</p><div class="row"><button data-a="gqdel" data-j="${j}">Entfernen</button></div></details>`).join('')}
+  <div class="row">${btn('gqone','Nächstes erstellen','','path')}${btn('gqall','Alle erstellen','p','path')}</div><div class="err" id="gqerr"></div></div>`:'')+
+  `<div class="card lesson"><h2>Meine Ziele</h2><p class="mut">Was willst du können? Die KI analysiert, was echte Profis darin können, und baut daraus einen Lernpfad mit Fachwissen, Quellen und Beleglage.</p>
   <label for="pz">Ziel</label><input id="pz" placeholder="z. B. überzeugen und argumentieren wie ein Top-Anwalt">
   <label for="pv">So gut wie … (Person, Beruf oder Vorbild)</label><input id="pv" placeholder="z. B. Strafverteidiger, FBI-Profiler, Ingenieur wie Tony Stark">
   <label for="pw2x">Wofür?</label><input id="pw2x" placeholder="z. B. Diskussionen, Bewerbung, Studium, Kunden">
@@ -766,6 +781,8 @@ $('v').addEventListener('click',async e=>{
   if(a==='test'){if(S.days[today()]&&!confirm('Heutiges Training durch den Einstufungstest ersetzen?'))return;if(await run('make',()=>makeDay('test')))go('heute')}
   if(a==='plan')await run('plan',makePlan);
   if(a==='path'){const f={ziel:$('pz').value.trim(),vorbild:$('pv').value.trim(),wofuer:$('pw2x').value.trim(),niveau:$('pn').value.trim()};if(!f.ziel)return showErr('patherr',new Error('Ziel eingeben.'));await run('path',()=>makePath(f),'patherr')}
+  if(a==='gqone'||a==='gqall')await run('path',()=>runGoalQ(a==='gqall'),'gqerr');
+  if(a==='gqdel'){S.goalQ.splice(+b.dataset.j,1);save();render()}
   if(a==='pathdel'){if(!confirm('Lernpfad entfernen? Gelernte Lektionen bleiben.'))return;S.paths.splice(+b.dataset.j,1);save();render()}
   if(a==='prof')await run('prof',updateProfile,'perr');
   if(a==='tip'){S.days[today()].tasks[i].showTip=true;save();render();$('c'+i)?.scrollIntoView({block:'nearest'})}
