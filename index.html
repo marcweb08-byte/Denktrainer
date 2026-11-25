@@ -86,7 +86,7 @@ body.locked nav,body.locked .gear{display:none}
 <button data-v="plan">Plan</button>
 <button data-v="coach">Coach</button>
 <button data-v="sport">Sport</button>
-<button data-v="stand">Stand</button>
+<button data-v="stand">Ich</button>
 </nav>
 <script>
 {
@@ -171,12 +171,14 @@ const topErr=n=>Object.entries(S.err).filter(([,e])=>!e.done).sort((a,b)=>b[1].n
 const modName=x=>x.mod==='pfad'?'LERNPFAD: '+(S.paths.find(p=>p.id===x.pfad)?.titel||'Ziel'):(MOD[x.mod]?.n||'');
 const planCtx=()=>S.plan?`\nLernplan-Ziele: ${(S.plan.ziele||[]).map(z=>z.ziel||z).slice(0,4).join('; ')}`:'';
 const pathCtx=()=>S.paths.length?`\nLernpfade (Maßstab sind echte Experten): ${S.paths.map(p=>`${p.titel} → wie ${p.rolle}`).join('; ')}`:'';
-const prof=()=>`Nutzer: ${S.set.name}, ${S.set.about}\nZiele: ${S.goals}${pathCtx()}${S.profil?`\nLernerprofil (wie er lernt, Stärken, Schwächen): ${S.profil}`:''}${topErr(5).length?`\nWiederkehrende Fehler: ${topErr(5).map(([k,e])=>`${k} (${e.n}×)`).join('; ')}`:''}${planCtx()}`;
+const dosCtx=()=>{const D=S.dossier;if(!D)return S.profil?`\nLernerprofil: ${S.profil}`:'';const L=D.lernstil||{};
+  return `\nLERN-DOSSIER (Grundlage für alles, Stand ${D.d}):\nWie er am besten lernt: ${(L.wirkt||[]).join('; ')}${(L.wirkt_nicht||[]).length?`\nWas bei ihm nicht wirkt: ${L.wirkt_nicht.join('; ')}`:''}${L.erklaeren?`\nSo erklären: ${L.erklaeren}`:''}\nStand: ${(D.bereiche||[]).map(b=>`${CATS[b.kat]?.n||b.kat} ${b.niveau}/5 (${b.trend}): stark ${b.staerke}, schwach ${b.schwaeche}`).join(' | ')}\nNächste Schritte: ${(D.naechste||[]).join('; ')}${S.dosNote?`\nKorrektur vom Nutzer selbst (hat Vorrang): ${S.dosNote}`:''}`};
+const prof=()=>`Nutzer: ${S.set.name}, ${S.set.about}\nZiele: ${S.goals}${pathCtx()}${dosCtx()}${topErr(5).length?`\nWiederkehrende Fehler: ${topErr(5).map(([k,e])=>`${k} (${e.n}×)`).join('; ')}`:''}${planCtx()}`;
 
 /* ================= KI ================= */
 function fixJ(t){let o='',q=false,e=false;for(const ch of t){if(q){if(e){e=false;o+=ch;continue}if(ch==='\\'){e=true;o+=ch;continue}if(ch==='"'){q=false;o+=ch;continue}if(ch==='\n'){o+='\\n';continue}if(ch==='\r')continue;if(ch==='\t'){o+='\\t';continue}o+=ch}else{if(ch==='"')q=true;o+=ch}}return o.replace(/,\s*([}\]])/g,'$1')}
 function parseJ(c){c=String(c).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```(json)?/g,'');const ia=c.indexOf('['),io=c.indexOf('{');const arr=ia>=0&&(io<0||ia<io);const a=arr?ia:io,b=arr?c.lastIndexOf(']'):c.lastIndexOf('}');if(a<0||b<a)throw new Error('BADJSON');const t=c.slice(a,b+1);try{return JSON.parse(t)}catch(e){try{return JSON.parse(fixJ(t))}catch(e2){throw new Error('BADJSON')}}}
-const VER='24';
+const VER='25';
 const GMODELS=['gemini-flash-lite-latest','gemini-3.1-flash-lite','gemini-3.5-flash-lite','gemini-2.5-flash-lite','gemini-flash-latest'];
 let lastCall=0;
 const waitVisible=()=>document.hidden?new Promise(r=>{const f=()=>{if(!document.hidden){document.removeEventListener('visibilitychange',f);r()}};document.addEventListener('visibilitychange',f)}):Promise.resolve();
@@ -329,6 +331,7 @@ Antworte ausschließlich mit gültigem JSON auf Deutsch.`;
     if(t.tech&&S.tech[t.tech]){const x=S.tech[t.tech];if(g.punkte<5){x.relearn=true;x.due=today()}else if(g.punkte>=8){x.box=Math.max(x.box||1,4);x.due=addDays(today(),14)}}
   }
   if(first&&t.mini&&!day.tasks.some(x=>x.mini&&!x.grade)){S.planDirty=true}
+  if(first&&!day.dossier&&day.tasks.length&&day.tasks.every(x=>x.grade))day.needDossier=true;
   save();maybeCycle();
 }
 async function wiki(term,lang='de'){
@@ -423,6 +426,7 @@ Format:
   const p=await ai(sys,user);
   (p.bereiche||[]).forEach(b=>{if(DAILY.includes(b.kat)&&+b.stufe)S.lvl[b.kat]=Math.max(1,Math.min(5,+b.stufe))});
   S.plan={...p,d:today()};save();
+  try{await updateDossier()}catch(e){}
 }
 async function analyse(){
   const r=S.res.slice(-40).map(x=>`${x.d} | ${CATS[x.cat]?.n} | ${x.score}/10 | ${x.fazit||''} | Verbessern: ${x.besser||''}`).join('\n');
@@ -430,7 +434,31 @@ async function analyse(){
   const user=`${prof()}\nErgebnisse (neueste unten):\n${r}\n\nFormat:\n{"zusammenfassung":"3-4 Sätze","staerken":["..."],"schwaechen":["wiederkehrende Fehlermuster"],"fokus":["3 konkrete Schwerpunkte für die nächsten Tage"]}`;
   S.ana={...await ai(sys,user),d:today()};save();
 }
-async function updateProfile(){
+async function updateDossier(){
+  const byCat=[...DAILY,'technik','abruf','mission','rolle','debatte'].map(k=>{const r=S.res.filter(x=>x.cat===k);if(!r.length)return null;const a=x=>x.length?(x.reduce((p,q)=>p+q.score,0)/x.length).toFixed(1):'-';return `${CATS[k].n}: ${r.length} Aufgaben, Ø gesamt ${a(r)}, Ø letzte 5 ${a(r.slice(-5))}, Ø erste 5 ${a(r.slice(0,5))}, Stufe ${(S.lvl[k]??2).toFixed(1)}`}).filter(Boolean).join('\n');
+  const fb=S.res.slice(-25).map(x=>`${x.d} ${CATS[x.cat]?.n} ${x.score}/10: ${x.fazit||''} | besser: ${x.besser||''}`).join('\n');
+  const tut=Object.entries(S.topics).map(([k,v])=>`${k}: kann ${v.stand}; Lücken ${v.luecken}; Lernstil ${v.lernstil}`).join('\n')||'keine';
+  const mis=Object.values(S.missions).filter(m=>m.grade).slice(-8).map(m=>`${m.text} → ${m.grade.einsicht}`).join('\n')||'keine';
+  const sys='Du führst das Lern-Dossier eines Schülers für seinen persönlichen KI-Trainer. Es ist die Grundlage für alle Aufgaben, Lektionen und Bewertungen. Nur Aussagen, die durch die Daten gestützt sind, keine Diagnosen, keine Floskeln. Ehrlich, konkret, kurz. Antworte ausschließlich mit gültigem JSON auf Deutsch.';
+  const user=`Bisheriges Dossier: ${S.dossier?JSON.stringify({lernstil:S.dossier.lernstil,bereiche:S.dossier.bereiche,muster:S.dossier.muster}):'noch keins'}
+Korrektur vom Nutzer (hat Vorrang): ${S.dosNote||'keine'}
+Selbstbeschreibung: ${S.set.about}
+Ziele: ${S.goals}
+Lernpfade: ${S.paths.map(p=>p.titel+' (Maßstab '+p.rolle+')').join('; ')||'keine'}
+Lernplan: ${S.plan?.gesamt||'noch keiner'}
+Ergebnisse pro Bereich:\n${byCat||'noch keine'}
+Letzte Bewertungen:\n${fb||'keine'}
+Fehlermuster: ${topErr(10).map(([k,e])=>k+' '+e.n+'×').join('; ')||'keine'}
+Lernsitzungen:\n${tut}
+Praxis-Missionen:\n${mis}
+
+Format:
+{"ueber":"wer er ist und was er will, 2-3 Sätze","lernstil":{"wirkt":["was bei ihm nachweislich gut funktioniert"],"wirkt_nicht":["was nicht funktioniert"],"erklaeren":"wie man ihm am besten etwas erklärt, 1 Satz"},"bereiche":[{"kat":"bereich-id","niveau":1-5,"trend":"steigend|gleich|fallend|neu","staerke":"kurz","schwaeche":"kurz"}],"muster":["wiederkehrende Denk- oder Ausdrucksmuster"],"fortschritt":"was sich seit Beginn verbessert hat, 1-2 Sätze","naechste":["die 3 Dinge, die ihm jetzt den größten Fortschritt bringen"]}`;
+  const D=await ai(sys,user);
+  if(D&&D.lernstil){S.dossier={...D,d:today()};S.profil=[...(D.lernstil.wirkt||[])].join('; ');save()}
+}
+async function updateProfile(){return updateDossier()}
+async function _oldProfile(){
   const r=S.res.slice(-30).map(x=>`${CATS[x.cat]?.n}: ${x.score}/10, ${x.besser||''}`).join('\n');
   const t=Object.entries(S.topics).map(([k,v])=>`${k}: ${v.lernstil||''}`).join('\n')||'keine';
   const sys='Du pflegst das Lernerprofil eines Schülers für seinen persönlichen KI-Trainer. Nur Beobachtungen, die durch die Daten gestützt sind, keine Diagnosen. Antworte ausschließlich mit gültigem JSON auf Deutsch.';
@@ -439,6 +467,7 @@ async function updateProfile(){
 }
 async function maybeCycle(){
   if(busy.cycle||locked||!S.set.key)return;
+  const dd=S.days[today()];if(dd?.needDossier){busy.cycle=1;try{await updateDossier();dd.needDossier=false;dd.dossier=true;S.planNote='Dein Lern-Dossier wurde mit den heutigen Ergebnissen aktualisiert.';save()}catch(e){}busy.cycle=0;const el=$('pnote');if(el)el.textContent=S.planNote||''}
   if(S.planDirty&&S.plan&&!S.mini){busy.cycle=1;try{await makePlan();S.planDirty=false;S.planNote='Lernplan um deine neuen Ziele erweitert.';save()}catch(e){}busy.cycle=0;if(view==='plan'||view==='heute'){const el=$('pnote');if(el)el.textContent=S.planNote}return}
   const fresh=S.res.filter(r=>r.d>(S.lastCycle||'')).length;
   if(S.res.length<5||fresh<5||(S.lastCycle&&daysBetween(S.lastCycle,today())<7))return;
@@ -630,8 +659,6 @@ function vPlan(){
   <div class="row">${btn('test',testDay&&testDay[0]===today()&&testDay[1].tasks.length<(testDay[1].want||0)?'Test fortsetzen':testDay?'Neuen Test starten':'Test starten',testDay&&!(testDay[0]===today()&&testDay[1].tasks.length<(testDay[1].want||0))?'':'p','make')}
   ${btn('plan',P?'Plan jetzt aktualisieren':'Einschätzung & Lernplan erstellen','p','plan',((!testDay||tdone<Math.ceil(ttot*.6))&&S.res.filter(r=>!r.test).length<15)?'disabled':'')}</div>
   <p class="mut">Nach dem Plan läuft alle 7 Tage automatisch eine Auswertung, die Profil, Fokus und Plan anpasst.</p><div class="err" id="err"></div></div>`;
-  h+=`<div class="card"><h2>Wie die KI dich sieht</h2><p class="mut">Lernerprofil, wird nach Lernsitzungen und wöchentlich aktualisiert. Du kannst es korrigieren.</p><textarea id="profil" style="min-height:120px" placeholder="Entsteht nach den ersten Aufgaben und Lernsitzungen.">${esc(S.profil)}</textarea>
-  <div class="row">${btn('prof','Profil jetzt aktualisieren','','prof',S.res.length<3?'disabled':'')}</div><div class="err" id="perr"></div></div>`;
   h+=`<div class="card"><h2>Fehlerprofil</h2><p class="mut">Der häufigste offene Fehler bekommt täglich eine gezielte Aufgabe. Zweimal fehlerfrei mit mindestens 7 Punkten gilt er als abgehakt.</p>
   ${errs.length?errs.slice(0,25).map(([k,e])=>`<div class="erl">${e.done?`<s>${esc(k)}</s>`:`<span>${esc(k)}</span>`}<span class="mut">${e.done?'abgehakt':e.n+'×'}</span></div>`).join(''):'<p class="mut">Noch leer.</p>'}</div>`;
   if(P){
@@ -722,8 +749,20 @@ function spAnswer(ok){
   if(o){o.box=ok?Math.min(5,(o.box||1)+1):1;o.due=addDays(today(),[1,1,3,7,14,30][o.box]);save()}
   sp.i++;sp.show=false;render();
 }
+function dossierCards(){
+  const D=S.dossier,L=D?.lernstil||{};
+  return `<div class="card lesson"><h2>Mein Lern-Dossier</h2>${D?`<p class="mut">Stand ${esc(D.d)}. Grundlage für alle Aufgaben, Lektionen, Bewertungen und den Plan. Wird nach jedem fertigen Trainingstag aktualisiert.</p>
+  <h3>Über mich</h3><div class="txt">${esc(D.ueber)}</div>
+  <h3>So lerne ich am besten</h3>${li(L.wirkt)}${(L.wirkt_nicht||[]).length?`<h3>Was bei mir nicht wirkt</h3>${li(L.wirkt_nicht)}`:''}${L.erklaeren?`<p><b>So erklärt man mir etwas:</b> ${esc(L.erklaeren)}</p>`:''}
+  <h3>Wo ich stehe</h3>${(D.bereiche||[]).map(b=>`<div class="bar"><span>${esc(CATS[b.kat]?.n||b.kat)}</span><div><i style="width:${(+b.niveau||0)*20}%"></i></div><span>${esc(b.niveau)}/5</span></div><div class="mut" style="margin:0 0 8px">${esc(b.trend==='steigend'?'↑ steigend':b.trend==='fallend'?'↓ fallend':b.trend==='neu'?'neu':'→ gleich')} · stark: ${esc(b.staerke)} · schwach: ${esc(b.schwaeche)}</div>`).join('')}
+  ${(D.muster||[]).length?`<h3>Meine Muster</h3>${li(D.muster)}`:''}
+  ${D.fortschritt?`<h3>Fortschritt bisher</h3><div class="txt">${esc(D.fortschritt)}</div>`:''}
+  <h3>Was mir jetzt am meisten bringt</h3>${li(D.naechste)}`:'<p class="mut">Entsteht nach dem Einstufungstest bzw. den ersten Aufgaben.</p>'}
+  <div class="row">${btn('dos','Dossier jetzt aktualisieren','','dos',S.res.length<3?'disabled':'')}</div><div class="err" id="doserr"></div></div>
+  <div class="card"><h2>Stimmt etwas nicht?</h2><p class="mut">Korrigier oder ergänze hier. Das hat bei der KI immer Vorrang, z. B. „Ich lerne besser mit Beispielen aus der Technik“ oder „Smalltalk fällt mir leichter als es aussieht“.</p><textarea id="dosnote" style="min-height:80px">${esc(S.dosNote||'')}</textarea></div>`;
+}
 function vStand(){
-  head('Fortschritt','');
+  head('Ich','Dossier, Fortschritt, Verlauf');
   const days=new Set(S.res.map(r=>r.d));let streak=0,d=today();
   if(!days.has(d))d=addDays(d,-1);
   while(days.has(d)){streak++;d=addDays(d,-1)}
@@ -736,7 +775,7 @@ function vStand(){
   const chart=pts.length>1?`<svg viewBox="0 0 320 120" style="width:100%;height:140px"><line x1="10" x2="310" y1="40" y2="40" stroke="currentColor" opacity=".2" stroke-dasharray="4"/><text x="312" y="43" font-size="9" fill="currentColor" opacity=".6">7</text><polyline fill="none" stroke="var(--acc2)" stroke-width="3" points="${pts.map(p=>p.join(',')).join(' ')}"/>${pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="var(--acc2)"/>`).join('')}</svg>`:'<p class="mut">Erscheint nach zwei Trainingswochen.</p>';
   const tests=Object.entries(S.days).filter(([,x])=>x.type==='test');
   const cmp=tests.length>=2?(()=>{const sc=d=>Object.fromEntries(d.tasks.filter(t=>t.grade).map(t=>[t.kat,t.first??t.grade.punkte]));const a=sc(tests[0][1]),b=sc(tests[tests.length-1][1]);return `<div class="card"><h2>Test-Vergleich</h2><p class="mut">${esc(tests[0][0])} → ${esc(tests[tests.length-1][0])}</p>${DAILY.filter(k=>a[k]!=null&&b[k]!=null).map(k=>`<div class="bar"><span>${esc(CATS[k].n)}</span><div><i style="width:${b[k]*10}%"></i></div><span>${a[k]}→${b[k]}</span></div>`).join('')}</div>`})():'';
-  return `<div class="stats"><div><b>${streak}</b><span>Tage in Folge</span></div><div><b>${S.res.length}</b><span>Aufgaben</span></div><div><b>${S.words.length}</b><span>Wörter</span></div><div><b>${Object.keys(S.tech).length}</b><span>Techniken</span></div></div>
+  return dossierCards()+`<div class="stats"><div><b>${streak}</b><span>Tage in Folge</span></div><div><b>${S.res.length}</b><span>Aufgaben</span></div><div><b>${S.words.length}</b><span>Wörter</span></div><div><b>${Object.keys(S.tech).length}</b><span>Techniken</span></div></div>
   <div class="card" style="margin-top:14px"><h2>Fortschritt pro Woche</h2><p class="mut">Ø Punkte der letzten 12 Wochen. Weil die Aufgaben mitwachsen, bedeutet eine gleichbleibende Linie trotzdem Fortschritt: Die Stufen steigen.</p>${chart}</div>${cmp}
   <div class="card"><h2>Ø Punkte je Bereich</h2><p class="mut">Letzte 10 pro Bereich. Ziel: um 7. Darüber wird es schwerer, darunter leichter.</p>${bars}</div>
   <div class="card"><h2>KI-Auswertung</h2>
@@ -805,6 +844,7 @@ $('v').addEventListener('input',e=>{
   if(t.dataset.i!=null){S.days[today()].tasks[+t.dataset.i].ans=t.value;save();return}
   if(t.id==='goals'){S.goals=t.value;save();return}
   if(t.id==='profil'){S.profil=t.value;save();return}
+  if(t.id==='dosnote'){S.dosNote=t.value;save();return}
   if(t.id==='cin'){S.draft=t.value;save();return}
   if(t.id==='mref'){S.missions[today()].reflex=t.value;save();return}
   if(view==='setup'&&['base','model','key','gkey','lang','about','name'].includes(t.id)){S.set[t.id]=t.value;save()}
@@ -840,6 +880,7 @@ $('v').addEventListener('click',async e=>{
     try{await grade(i);busy['g'+i]=0;render();$('c'+i)?.scrollIntoView({block:'start'})}catch(err){busy['g'+i]=0;render();showErr('e'+i,err)}
   }
   if(a==='ana')await run('ana',analyse);
+  if(a==='dos')await run('dos',updateDossier,'doserr');
   if(a==='test2'){const ok=await run('test',async()=>{const j=await ai('Antworte nur mit JSON.','Gib {"ok":true} zurück.');if(!j.ok)throw new Error('Antwort unerwartet.')});if(ok){$('err').className='okm';$('err').textContent='Verbindung steht.'}}
   if(a==='mode'){coachMode=b.dataset.m;render()}
   if(a==='noctx'){S.ctx=null;save();render()}
