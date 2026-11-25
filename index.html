@@ -166,6 +166,7 @@ const prof=()=>`Nutzer: ${S.set.name}, ${S.set.about}\nZiele: ${S.goals}${pathCt
 /* ================= KI ================= */
 function fixJ(t){let o='',q=false,e=false;for(const ch of t){if(q){if(e){e=false;o+=ch;continue}if(ch==='\\'){e=true;o+=ch;continue}if(ch==='"'){q=false;o+=ch;continue}if(ch==='\n'){o+='\\n';continue}if(ch==='\r')continue;if(ch==='\t'){o+='\\t';continue}o+=ch}else{if(ch==='"')q=true;o+=ch}}return o.replace(/,\s*([}\]])/g,'$1')}
 function parseJ(c){c=String(c).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```(json)?/g,'');const a=c.indexOf('{'),b=c.lastIndexOf('}');if(a<0||b<a)throw new Error('BADJSON');const t=c.slice(a,b+1);try{return JSON.parse(t)}catch(e){try{return JSON.parse(fixJ(t))}catch(e2){throw new Error('BADJSON')}}}
+const VER='12';
 let lastCall=0;
 async function ai(sys,msgs,json=true,retry=false){
   const s=S.set;
@@ -192,7 +193,7 @@ async function ai(sys,msgs,json=true,retry=false){
   if(r.status===429)throw new Error('Limit der Gratis-API erreicht. Eine Minute warten und nochmal versuchen.');
   if([500,502,503,504].includes(r.status))throw new Error('Die KI ist gerade überlastet (Fehler '+r.status+'). In ein paar Minuten nochmal versuchen.');
   if(!r.ok)throw new Error('Fehler '+r.status+': '+(await r.text()).slice(0,240));
-  const c=(await r.json()).choices?.[0]?.message?.content||'';
+  let c='';try{const raw=await r.text();c=JSON.parse(raw).choices?.[0]?.message?.content||''}catch(e){if(!retry)return ai(sys,msgs,json,true);throw new Error('Die KI-Antwort kam unvollständig an. Bitte nochmal versuchen.')}
   if(!json)return c.replace(/<think>[\s\S]*?<\/think>/g,'').trim();
   try{return parseJ(c)}catch(e){
     if(!retry)return ai(sys,[...msgs,{role:'assistant',content:c.slice(0,2000)},{role:'user',content:'Das war kein gültiges JSON. Gib dieselbe Antwort nochmal, ausschließlich als gültiges JSON ohne Text davor oder danach, kürzer formuliert.'}],true,true);
@@ -591,7 +592,7 @@ function vStand(){
   <div class="card"><h2>Verlauf</h2>${S.res.slice(-20).reverse().map(r=>`<div class="bar"><span>${esc(r.d.slice(5))}</span><span>${esc(r.title)}</span><span>${r.score}</span></div>`).join('')||'<p class="mut">Noch leer.</p>'}</div>`;
 }
 function vSetup(){
-  head('Einstellungen','KI, Umfang, Datenschutz');
+  head('Einstellungen','KI, Umfang, Datenschutz · App-Version '+VER);
   const s=S.set;
   return `<div class="card"><h2>KI-Modell</h2>
   <label for="prov">Anbieter</label><select id="prov"><option value="groq">Groq (gratis, schnell, Open Source)</option><option value="gemini">Google Gemini Flash-Lite (gratis, 500/Tag)</option><option value="openrouter">OpenRouter (Gratis-Modelle)</option><option value="eigen">Eigene Adresse (z. B. später KAIRO)</option></select>
