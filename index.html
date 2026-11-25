@@ -117,7 +117,7 @@ ausdruck:{n:'Struktur & Ausdruck',l:['Pyramidenprinzip (Minto)','SCQA-Einstieg',
 lernen:{n:'Lernen & Gedächtnis',l:['Feynman-Methode','Abrufen statt Wiederlesen','Spaced Repetition','Interleaving','Elaboration: Warum-Fragen','Gedächtnispalast (Loci)','Major-System für Zahlen','Chunking','Fehlerjournal','Wissen übertragen (Transfer)']}
 };
 const PRIO='Priorität nach Alltagsnutzen: 1. Smalltalk und souveränes Gesprächsverhalten, 2. sich präzise, geordnet und schön ausdrücken, 3. klar denken und Probleme lösen, 4. überzeugen, argumentieren, Kunstgriffe erkennen und kontern, danach der Rest.';
-const PRESETS={groq:{base:'https://api.groq.com/openai/v1',model:'openai/gpt-oss-120b'},openrouter:{base:'https://openrouter.ai/api/v1',model:'openai/gpt-oss-120b:free'},eigen:{base:'',model:''}};
+const PRESETS={groq:{base:'https://api.groq.com/openai/v1',model:'openai/gpt-oss-120b'},gemini:{base:'https://generativelanguage.googleapis.com/v1beta/openai',model:'gemini-flash-latest'},openrouter:{base:'https://openrouter.ai/api/v1',model:'openai/gpt-oss-120b:free'},eigen:{base:'',model:''}};
 const GOALS='Logischer denken (Mathe, Physik, Mechatronik) und bei jedem Problem sehr gute Lösungsansätze finden. Smalltalk sicher beherrschen. Gedanken geordnet, präzise und schön ausdrücken, auch Prompts. In Alltagssituationen (Stress, Ärger) souverän reagieren. Argumentieren, überzeugen, Diskussionen gewinnen, Kunstgriffe (Schopenhauer) und Manipulation erkennen, kontern und selbst beherrschen. Menschen analysieren, Profile erstellen, Fälle lösen, das Gesamtbild sehen. Rechtschreibung, Fremdsprache, Allgemeinwissen, Einstellungstests. Nicht nur Oberfläche, sondern Fortgeschrittenes, das die wenigsten können, und es wirklich anwenden können.';
 const DEF={set:{prov:'groq',base:PRESETS.groq.base,model:PRESETS.groq.model,key:'',min:20,words:1,lang:'Englisch',name:'Marc',about:'18 Jahre, duales Maschinenbau-Studium, Freelance-Webentwickler, Ju-Jutsu-Trainerassistent.',cats:Object.fromEntries(DAILY.map(k=>[k,true]))},goals:GOALS,days:{},res:[],words:[],lvl:{},ana:null,plan:null,tech:{},techN:0,chat:[],deb:null,ctx:null,profil:'',err:{},tut:null,topics:{},lastCycle:''};
 
@@ -164,11 +164,11 @@ function parseJ(c){c=String(c).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/
 async function ai(sys,msgs,json=true){
   const s=S.set;
   if(!s.base||!s.model)throw new Error('API-Adresse und Modell unter Einstellungen eintragen.');
-  if(!s.key)throw new Error('Kein API-Key. Unter Einstellungen eintragen (gratis auf console.groq.com).');
+  if(!s.key)throw new Error('Kein API-Key. Unter Einstellungen eintragen (Groq: console.groq.com, Gemini: aistudio.google.com).');
   if(typeof msgs==='string')msgs=[{role:'user',content:msgs}];
   const body={model:s.model,messages:[{role:'system',content:sys},...msgs],temperature:.8};
   if(json)body.response_format={type:'json_object'};
-  if(/gpt-oss/.test(s.model)&&/groq/.test(s.base))body.reasoning_effort='low';
+  if((/gpt-oss/.test(s.model)&&/groq/.test(s.base))||/googleapis/.test(s.base))body.reasoning_effort='low';
   const go=()=>fetch(s.base.replace(/\/$/,'')+'/chat/completions',{method:'POST',referrerPolicy:'no-referrer',headers:{'Content-Type':'application/json',Authorization:'Bearer '+s.key},body:JSON.stringify(body)});
   let r;
   for(let tries=0;;tries++){
@@ -554,10 +554,10 @@ function vSetup(){
   head('Einstellungen','KI, Umfang, Datenschutz');
   const s=S.set;
   return `<div class="card"><h2>KI-Modell</h2>
-  <label for="prov">Anbieter</label><select id="prov"><option value="groq">Groq (gratis, schnell, empfohlen)</option><option value="openrouter">OpenRouter (Gratis-Modelle)</option><option value="eigen">Eigene Adresse (z. B. später KAIRO)</option></select>
+  <label for="prov">Anbieter</label><select id="prov"><option value="groq">Groq (gratis, schnell, Open Source)</option><option value="gemini">Google Gemini (gratis, sehr gut)</option><option value="openrouter">OpenRouter (Gratis-Modelle)</option><option value="eigen">Eigene Adresse (z. B. später KAIRO)</option></select>
   <label for="base">API-Adresse</label><input id="base" value="${esc(s.base)}" autocomplete="off">
   <label for="model">Modell</label><input id="model" value="${esc(s.model)}" autocomplete="off">
-  <label for="key">API-Key</label><input id="key" type="password" value="${esc(s.key)}" autocomplete="off" placeholder="gsk_…">
+  <label for="key">API-Key</label><input id="key" type="password" value="${esc(s.key)}" autocomplete="off" placeholder="gsk_… oder AIza…">
   <div class="row">${btn('test2','Verbindung testen','','test')}</div><div class="err" id="err"></div></div>
   <div class="card"><h2>Datenschutz</h2>
   <ul><li>Alles liegt nur auf diesem Handy. Es gibt keinen Server, kein Konto, kein Tracking und keine fremden Schriften oder Skripte.</li>
