@@ -173,7 +173,7 @@ const prof=()=>`Nutzer: ${S.set.name}, ${S.set.about}\nZiele: ${S.goals}${pathCt
 /* ================= KI ================= */
 function fixJ(t){let o='',q=false,e=false;for(const ch of t){if(q){if(e){e=false;o+=ch;continue}if(ch==='\\'){e=true;o+=ch;continue}if(ch==='"'){q=false;o+=ch;continue}if(ch==='\n'){o+='\\n';continue}if(ch==='\r')continue;if(ch==='\t'){o+='\\t';continue}o+=ch}else{if(ch==='"')q=true;o+=ch}}return o.replace(/,\s*([}\]])/g,'$1')}
 function parseJ(c){c=String(c).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```(json)?/g,'');const ia=c.indexOf('['),io=c.indexOf('{');const arr=ia>=0&&(io<0||ia<io);const a=arr?ia:io,b=arr?c.lastIndexOf(']'):c.lastIndexOf('}');if(a<0||b<a)throw new Error('BADJSON');const t=c.slice(a,b+1);try{return JSON.parse(t)}catch(e){try{return JSON.parse(fixJ(t))}catch(e2){throw new Error('BADJSON')}}}
-const VER='21';
+const VER='22';
 const GMODELS=['gemini-flash-lite-latest','gemini-3.1-flash-lite','gemini-3.5-flash-lite','gemini-2.5-flash-lite','gemini-flash-latest'];
 let lastCall=0;
 const waitVisible=()=>document.hidden?new Promise(r=>{const f=()=>{if(!document.hidden){document.removeEventListener('visibilitychange',f);r()}};document.addEventListener('visibilitychange',f)}):Promise.resolve();
@@ -186,7 +186,7 @@ async function ai(sys,msgs,json=true,retry=false){
   if(json)body.response_format={type:'json_object'};
   if(/googleapis/.test(s.base))body.max_tokens=8192;
   if((/gpt-oss/.test(s.model)&&/groq/.test(s.base))||/googleapis/.test(s.base))body.reasoning_effort='low';
-  if(/googleapis/.test(s.base)){const w=lastCall+7000-Date.now();if(w>0)await sleep(w)}lastCall=Date.now();
+  if(/googleapis/.test(s.base)){const now=Date.now(),at=Math.max(now,lastCall);lastCall=at+4500;if(at>now)await sleep(at-now)}
   const go=()=>{const ac=new AbortController();const to=setTimeout(()=>ac.abort(),90000);return fetch(s.base.replace(/\/$/,'')+'/chat/completions',{signal:ac.signal,method:'POST',referrerPolicy:'no-referrer',headers:{'Content-Type':'application/json',Authorization:'Bearer '+s.key},body:JSON.stringify(body)}).finally(()=>clearTimeout(to))};
   let r;const gTried=new Set();
   for(let tries=0;;tries++){
@@ -266,10 +266,12 @@ async function genTasks(slots,per){
 async function makeDay(type){
   const t=today();
   if(type==='test'){
-    const K=progK,all=DAILY.filter(k=>S.set.cats[k]).map(k=>({k,lv:3})),tasks=[];
-    for(let i=0;i<all.length;i+=4){setProg(`Aufgaben ${i}/${all.length} erstellt …`,K);tasks.push(...await genTasks(all.slice(i,i+4),3))}
-    setProg('',K);
-    S.days[t]={type:'test',tasks,lesson:null};save();return;
+    const K=progK,all=DAILY.filter(k=>S.set.cats[k]).map(k=>({k,lv:3}));
+    let D=S.days[t];if(!D||D.type!=='test'){D=S.days[t]={type:'test',tasks:[],lesson:null,want:all.length}}
+    D.want=all.length;save();
+    const missing=all.filter(x=>!D.tasks.some(tk=>tk.kat===x.k));
+    for(let i=0;i<missing.length;i+=3){setProg(`Aufgaben ${D.tasks.length}/${all.length} erstellt …`,K);const part=await genTasks(missing.slice(i,i+3),3);D.tasks.push(...part);save();if(view==='heute')render()}
+    setProg('',K);return;
   }
   const N={10:4,20:6,30:8}[S.set.min]||6;
   const nw=S.set.cats.wort?Math.min(+S.set.words,2):0;
@@ -371,11 +373,11 @@ async function addGoal(f){S.goalQ=S.goalQ||[];S.goalQ.push(f);save();await makeP
 async function runGoalQ(all){
   const q=S.goalQ;if(!q?.length)return;
   const list=all?q.slice():[q[0]];
-  for(const g of list){await makePath({...g});S.goalQ=S.goalQ.filter(x=>x!==g);save()}
+  for(const [n,g] of list.entries()){await makePath({...g,pre:`Ziel ${n+1}/${list.length}: `});S.goalQ=S.goalQ.filter(x=>x!==g);save();if(view==='plan')render()}
   maybeCycle();
 }
 async function makePath(f){
-  const K=progK;const sp=t=>setProg(t,K);
+  const K=progK;const sp=t=>setProg(t?(f.pre||'')+t:'',K);
   sp('Suche Fachgebiete …');
   let terms=[];
   try{const t=await ai('Antworte ausschließlich mit gültigem JSON.',`Ziel: ${f.ziel}. Vorbild: ${f.vorbild||'-'}. Nenne 5 präzise englische Fachbegriffe für die Forschung, die man für dieses Ziel wirklich beherrschen muss (z. B. "deliberate practice expertise", "cross-examination persuasion", "behavioral analysis interviewing", "mechatronic system design"), als Suchbegriffe für eine wissenschaftliche Datenbank. Format: {"begriffe":["..."]}`);terms=(t.begriffe||[]).slice(0,5)}catch(e){}
@@ -552,7 +554,8 @@ function vHeute(){
   const lastTest=Object.entries(S.days).filter(([,x])=>x.type==='test').pop();
   const remind=(S.plan&&lastTest&&daysBetween(lastTest[0],today())>=30?`<div class="card lesson"><h2>Zeit für den Monats-Test</h2><p class="mut">Gleiche Bereiche wie beim letzten Einstufungstest. So siehst du schwarz auf weiß, was du verbessert hast.</p><div class="row"><button class="p" data-go="plan">Zum Test</button></div></div>`:'')+
     (S.res.length>=10&&(!S.lastBackup||daysBetween(S.lastBackup,today())>=7)?`<div class="card"><b>Backup fällig.</b> <span class="mut">Deine Daten liegen nur auf diesem Handy.</span><div class="row"><button data-go="setup">Backup machen</button></div></div>`:'');
-  return cyc()+miniCard()+remind+missionCard()+(d.type==='test'&&done>=Math.ceil(tot*.6)?`<div class="card lesson"><h2>Genug für die Einschätzung</h2><p class="mut">Im Plan die Einschätzung und den Lernplan erstellen.</p><div class="row"><button class="p" data-go="plan">Zum Plan</button></div></div>`:'')+
+  const inc=d.type==='test'&&d.tasks.length<(d.want||0)?`<div class="card lesson"><h2>Test unvollständig</h2><p class="mut">${d.tasks.length} von ${d.want} Aufgaben sind da und gespeichert. Du kannst schon anfangen, der Rest wird nachgeladen.</p><div class="row">${btn('test','Restliche Aufgaben laden','p','make')}</div><div class="err" id="err"></div></div>`:'';
+  return cyc()+inc+miniCard()+remind+missionCard()+(d.type==='test'&&done>=Math.ceil(tot*.6)?`<div class="card lesson"><h2>Genug für die Einschätzung</h2><p class="mut">Im Plan die Einschätzung und den Lernplan erstellen.</p><div class="row"><button class="p" data-go="plan">Zum Plan</button></div></div>`:'')+
    (L?lessonCard(L,true):'')+d.tasks.map((t,i)=>card(t,i)).join('')+
    `<div class="card"><div class="row">${btn('remake','Neue Aufgaben für heute','','make')}</div><div class="err" id="err"></div></div>`;
 }
@@ -617,7 +620,7 @@ function vPlan(){
   ${S.paths.map((p,j)=>{const n=(p.bausteine||[]).length,dn=(p.bausteine||[]).filter((b,i)=>S.tech['pfad:'+p.id+':'+i]).length;return `<details><summary>${esc(p.titel)} · ${dn}/${n}</summary><p class="mut">Maßstab: ${esc(p.rolle)}</p><div class="txt">${esc(p.kern)}</div><h3>Fähigkeiten</h3>${li(p.faehigkeiten)}<h3>Bausteine</h3><ul>${(p.bausteine||[]).map((b,i)=>`<li>${S.tech['pfad:'+p.id+':'+i]?'✓ ':''}<b>${esc(b.titel)}</b>: ${esc(b.inhalt)} <span class="mut">(${esc(b.quelle)} · Beleglage ${esc(b.evidenz)})</span></li>`).join('')}</ul><h3>Mythen</h3>${li(p.mythen)}<h3>Was nachweislich wirkt</h3>${li(p.uebungen)}<h3>Meilensteine</h3>${li((p.meilensteine||[]).map(m=>m.wann+': '+m.messbar))}<h3>Recherche-Quellen</h3>${(p.quellen||[]).length?`<ul>${p.quellen.map(q=>`<li><a href="${esc(q.url)}" target="_blank" rel="noopener noreferrer">${esc(q.titel)}</a></li>`).join('')}</ul>`:'<p class="mut">Keine, nur KI-Wissen.</p>'}<p class="mut">${p.web?'Mit Websuche erstellt.':'Mit Forschungsdatenbank, ohne Websuche (dafür Groq-Key eintragen).'}</p><div class="row"><button data-a="pathdel" data-j="${j}">Lernpfad entfernen</button></div></details>`}).join('')}</div>`;
   h+=`<div class="card"><h2>Was ich insgesamt erreichen will</h2><textarea id="goals" style="min-height:150px">${esc(S.goals)}</textarea><p class="mut">Fließt in jede Aufgabe, Lektion, Bewertung und den Plan ein.</p></div>`;
   h+=`<div class="card"><h2>Einstufungstest</h2>${testDay?`<p>Test vom ${esc(testDay[0])}: ${tdone} von ${ttot} abgegeben.${testDay[0]===today()&&tdone<ttot?' Die Aufgaben stehen unter „Heute“.':''}</p>`:'<p>Eine Aufgabe pro Bereich, mittlere Schwierigkeit, ca. 3 Minuten je Aufgabe. Ersetzt das heutige Training.</p>'}
-  <div class="row">${btn('test',testDay?'Neuen Test starten':'Test starten',testDay?'':'p','make')}
+  <div class="row">${btn('test',testDay&&testDay[0]===today()&&testDay[1].tasks.length<(testDay[1].want||0)?'Test fortsetzen':testDay?'Neuen Test starten':'Test starten',testDay&&!(testDay[0]===today()&&testDay[1].tasks.length<(testDay[1].want||0))?'':'p','make')}
   ${btn('plan',P?'Plan jetzt aktualisieren':'Einschätzung & Lernplan erstellen','p','plan',((!testDay||tdone<Math.ceil(ttot*.6))&&S.res.filter(r=>!r.test).length<15)?'disabled':'')}</div>
   <p class="mut">Nach dem Plan läuft alle 7 Tage automatisch eine Auswertung, die Profil, Fokus und Plan anpasst.</p><div class="err" id="err"></div></div>`;
   h+=`<div class="card"><h2>Wie die KI dich sieht</h2><p class="mut">Lernerprofil, wird nach Lernsitzungen und wöchentlich aktualisiert. Du kannst es korrigieren.</p><textarea id="profil" style="min-height:120px" placeholder="Entsteht nach den ersten Aufgaben und Lernsitzungen.">${esc(S.profil)}</textarea>
@@ -813,7 +816,7 @@ $('v').addEventListener('click',async e=>{
   if(a==='unlock'){try{b.disabled=true;await unlock($('pw').value);view='heute';render();maybeCycle()}catch(err){b.disabled=false;showErr('err',err)}return}
   if(locked)return;
   if(a==='make'||a==='remake'){if(a==='remake'&&!confirm('Heutige Aufgaben ersetzen? Gezählte Ergebnisse bleiben.'))return;await run('make',()=>makeDay('normal'))}
-  if(a==='test'){if(S.days[today()]&&!confirm('Heutiges Training durch den Einstufungstest ersetzen?'))return;if(await run('make',()=>makeDay('test')))go('heute')}
+  if(a==='test'){const D0=S.days[today()];if(D0&&D0.type!=='test'&&!confirm('Heutiges Training durch den Einstufungstest ersetzen?'))return;if(D0&&D0.type==='test'&&D0.tasks.length>=(D0.want||0)&&!confirm('Einen komplett neuen Test starten? Der heutige wird ersetzt.'))return;if(D0&&D0.type==='test'&&D0.tasks.length>=(D0.want||0))delete S.days[today()];if(await run('make',()=>makeDay('test')))go('heute')}
   if(a==='plan')await run('plan',makePlan);
   if(a==='path'){const f={ziel:$('pz').value.trim(),vorbild:$('pv').value.trim(),wofuer:$('pw2x').value.trim(),niveau:$('pn').value.trim()};if(!f.ziel)return showErr('patherr',new Error('Ziel eingeben.'));await run('path',()=>addGoal(f),'patherr')}
   if(a==='mini'){if(await run('mini',makeMini,'minierr'))go('heute')}
