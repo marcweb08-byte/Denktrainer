@@ -166,7 +166,7 @@ const prof=()=>`Nutzer: ${S.set.name}, ${S.set.about}\nZiele: ${S.goals}${pathCt
 /* ================= KI ================= */
 function fixJ(t){let o='',q=false,e=false;for(const ch of t){if(q){if(e){e=false;o+=ch;continue}if(ch==='\\'){e=true;o+=ch;continue}if(ch==='"'){q=false;o+=ch;continue}if(ch==='\n'){o+='\\n';continue}if(ch==='\r')continue;if(ch==='\t'){o+='\\t';continue}o+=ch}else{if(ch==='"')q=true;o+=ch}}return o.replace(/,\s*([}\]])/g,'$1')}
 function parseJ(c){c=String(c).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```(json)?/g,'');const a=c.indexOf('{'),b=c.lastIndexOf('}');if(a<0||b<a)throw new Error('BADJSON');const t=c.slice(a,b+1);try{return JSON.parse(t)}catch(e){try{return JSON.parse(fixJ(t))}catch(e2){throw new Error('BADJSON')}}}
-const VER='12';
+const VER='13';
 let lastCall=0;
 async function ai(sys,msgs,json=true,retry=false){
   const s=S.set;
@@ -306,13 +306,52 @@ Antworte ausschließlich mit gültigem JSON auf Deutsch.`;
   }
   save();maybeCycle();
 }
+async function wiki(term,lang='de'){
+  try{
+    const sr=await (await fetch(`https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srlimit=1&format=json&origin=*&srsearch=${encodeURIComponent(term)}`)).json();
+    const t=sr.query?.search?.[0]?.title;if(!t)return null;
+    const ex=await (await fetch(`https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exchars=2500&format=json&origin=*&titles=${encodeURIComponent(t)}`)).json();
+    const pg=Object.values(ex.query?.pages||{})[0];if(!pg?.extract)return null;
+    return{titel:t,url:`https://${lang}.wikipedia.org/wiki/${encodeURIComponent(t.replace(/ /g,'_'))}`,text:pg.extract};
+  }catch(e){return null}
+}
+async function webResearch(f){
+  const key=S.set.gkey||(/groq/.test(S.set.base)?S.set.key:'');if(!key)return null;
+  try{
+    const ac=new AbortController();const to=setTimeout(()=>ac.abort(),120000);
+    const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{signal:ac.signal,method:'POST',referrerPolicy:'no-referrer',headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},body:JSON.stringify({model:'groq/compound',messages:[{role:'user',content:`Recherchiere im Web gründlich und fasse auf Deutsch zusammen (max. 600 Wörter), mit Quellen-URLs:
+Ziel: ${f.ziel}. Vorbild/Maßstab: ${f.vorbild||'-'}.
+1. Welche realen Berufe, Studiengänge oder Ausbildungen gehören dazu? Was steht in deren Curricula und Modulhandbüchern (Hochschulen, Polizei-/Fachhochschulen, Fachgesellschaften)?
+2. Welche Standardlehrbücher und Kernkonzepte lernt man dort?
+3. Was unterscheidet laut Forschung oder Praktikern die Spitzenleute vom Durchschnitt, jenseits von Allgemeinwissen?
+4. Was ist wissenschaftlich gut belegt, was ist Mythos?`}]})}).finally(()=>clearTimeout(to));
+    if(!r.ok)return null;
+    const c=JSON.parse(await r.text()).choices?.[0]?.message?.content||'';
+    return c.trim()?c:null;
+  }catch(e){return null}
+}
 async function makePath(f){
+  setProg('Suche Fachgebiete …');
+  let terms=[];
+  try{const t=await ai('Antworte ausschließlich mit gültigem JSON auf Deutsch.',`Ziel: ${f.ziel}. Vorbild: ${f.vorbild||'-'}. Nenne 5 präzise Fachbegriffe (Disziplinen, Studienfächer, Methoden), die man für dieses Ziel wirklich lernen muss, als Suchbegriffe für Wikipedia. Format: {"begriffe":["..."]}`);terms=(t.begriffe||[]).slice(0,5)}catch(e){}
+  const src=[];
+  for(const [i,t] of terms.entries()){setProg(`Lese Wikipedia ${i+1}/${terms.length} …`);const w=await wiki(t);if(w&&!src.some(x=>x.titel===w.titel))src.push(w)}
+  setProg('Websuche über Groq …');
+  const web=await webResearch(f);
+  setProg('Baue Lernpfad …');
+  f.material=(web?`WEB-RECHERCHE (Curricula, Fachliteratur, Forschung):\n${web}\n\n`:'')+(src.length?'WIKIPEDIA-AUSZÜGE:\n'+src.map(x=>`[${x.titel}] ${x.text}`).join('\n\n'):'');
+  f.quellen=[...src.map(x=>({titel:'Wikipedia: '+x.titel,url:x.url}))];
+  if(web)(web.match(/https?:\/\/[^\s)\]>"]+/g)||[]).slice(0,12).forEach(u=>{if(!f.quellen.some(q=>q.url===u))f.quellen.push({titel:u.replace(/^https?:\/\//,'').slice(0,60),url:u})});
+  f.web=!!web;
+  await makePathCore(f);setProg('');
+}
+async function makePathCore(f){
   const sys=`Du bist Lerndesigner und Experte für Expertise-Forschung (Deliberate Practice, Transfer, Lernpsychologie). Du analysierst, was echte Spitzenkönner in einem Gebiet konkret anders und besser machen, und baust daraus einen Lernpfad mit echtem Fachwissen aus Forschung, Fachliteratur und Praxis der Profis, nicht mit Allgemeinplätzen. Übersetze Vorbilder aus Filmen oder Serien in reale Berufe und Fähigkeiten. Trenne ehrlich, was belegt ist und was Mythos ist. Erfinde keine Quellen: Bist du bei einem Titel unsicher, nenne Forscher oder Fachgebiet. ${PRIO}
 ${prof()}
 Antworte ausschließlich mit gültigem JSON auf Deutsch.`;
-  const user=`Ziel: ${f.ziel}\nVorbild bzw. so gut wie: ${f.vorbild||'nicht angegeben'}\nWofür: ${f.wofuer||'nicht angegeben'}\nWie gut, bis wann: ${f.niveau||'nicht angegeben'}\n\nFormat:\n{"titel":"kurzer Name","rolle":"reale Expertenrolle(n) als Maßstab","kern":"was diese Experten wirklich besser können, 2-3 Sätze","faehigkeiten":["konkrete Teilfähigkeiten"],"bausteine":[{"titel":"Technik, Methode oder Wissensbaustein","inhalt":"1 Satz","quelle":"Studie, Forscher, Buch oder Praxis","evidenz":"stark|mittel|schwach|umstritten"}],"mythen":["was oft behauptet wird, aber nicht stimmt"],"uebungen":["Übungsformen, die nachweislich wirken"],"meilensteine":[{"wann":"z. B. nach 4 Wochen","messbar":"woran erkennbar"}]}\n12 bis 18 Bausteine, vom Fundament zum Profi-Niveau sortiert. Alle Texte kurz halten.`;
+  const user=`${f.material?`Recherche-Material (nutze es als Grundlage: was man in Studium und Ausbildung wirklich lernt, Standardwerke, was Spitzenleute anders machen):\n${f.material.slice(0,9000)}\n\n`:''}Ziel: ${f.ziel}\nVorbild bzw. so gut wie: ${f.vorbild||'nicht angegeben'}\nWofür: ${f.wofuer||'nicht angegeben'}\nWie gut, bis wann: ${f.niveau||'nicht angegeben'}\n\nFormat:\n{"titel":"kurzer Name","rolle":"reale Expertenrolle(n) als Maßstab","kern":"was diese Experten wirklich besser können, 2-3 Sätze","faehigkeiten":["konkrete Teilfähigkeiten"],"bausteine":[{"titel":"Technik, Methode oder Wissensbaustein","inhalt":"1 Satz","quelle":"Studie, Forscher, Buch oder Praxis","evidenz":"stark|mittel|schwach|umstritten"}],"mythen":["was oft behauptet wird, aber nicht stimmt"],"uebungen":["Übungsformen, die nachweislich wirken"],"meilensteine":[{"wann":"z. B. nach 4 Wochen","messbar":"woran erkennbar"}]}\n12 bis 18 Bausteine, vom Fundament zum Profi-Niveau sortiert. Alle Texte kurz halten.`;
   const p=await ai(sys,user);
-  S.paths.push({...p,id:Date.now().toString(36),ziel:f.ziel,vorbild:f.vorbild,d:today()});save();
+  S.paths.push({...p,id:Date.now().toString(36),ziel:f.ziel,vorbild:f.vorbild,d:today(),quellen:f.quellen||[],web:!!f.web});save();
 }
 async function makePlan(){
   const testDay=Object.entries(S.days).filter(([,d])=>d.type==='test').pop();
@@ -484,7 +523,7 @@ function vPlan(){
   <label for="pw2x">Wofür?</label><input id="pw2x" placeholder="z. B. Diskussionen, Bewerbung, Studium, Kunden">
   <label for="pn">Wie gut, bis wann?</label><input id="pn" placeholder="z. B. in 3 Monaten deutlich besser als jetzt">
   <div class="row">${btn('path','Lernpfad erstellen','p','path')}</div><div class="err" id="patherr"></div>
-  ${S.paths.map((p,j)=>{const n=(p.bausteine||[]).length,dn=(p.bausteine||[]).filter((b,i)=>S.tech['pfad:'+p.id+':'+i]).length;return `<details><summary>${esc(p.titel)} · ${dn}/${n}</summary><p class="mut">Maßstab: ${esc(p.rolle)}</p><div class="txt">${esc(p.kern)}</div><h3>Fähigkeiten</h3>${li(p.faehigkeiten)}<h3>Bausteine</h3><ul>${(p.bausteine||[]).map((b,i)=>`<li>${S.tech['pfad:'+p.id+':'+i]?'✓ ':''}<b>${esc(b.titel)}</b>: ${esc(b.inhalt)} <span class="mut">(${esc(b.quelle)} · Beleglage ${esc(b.evidenz)})</span></li>`).join('')}</ul><h3>Mythen</h3>${li(p.mythen)}<h3>Was nachweislich wirkt</h3>${li(p.uebungen)}<h3>Meilensteine</h3>${li((p.meilensteine||[]).map(m=>m.wann+': '+m.messbar))}<div class="row"><button data-a="pathdel" data-j="${j}">Lernpfad entfernen</button></div></details>`}).join('')}</div>`;
+  ${S.paths.map((p,j)=>{const n=(p.bausteine||[]).length,dn=(p.bausteine||[]).filter((b,i)=>S.tech['pfad:'+p.id+':'+i]).length;return `<details><summary>${esc(p.titel)} · ${dn}/${n}</summary><p class="mut">Maßstab: ${esc(p.rolle)}</p><div class="txt">${esc(p.kern)}</div><h3>Fähigkeiten</h3>${li(p.faehigkeiten)}<h3>Bausteine</h3><ul>${(p.bausteine||[]).map((b,i)=>`<li>${S.tech['pfad:'+p.id+':'+i]?'✓ ':''}<b>${esc(b.titel)}</b>: ${esc(b.inhalt)} <span class="mut">(${esc(b.quelle)} · Beleglage ${esc(b.evidenz)})</span></li>`).join('')}</ul><h3>Mythen</h3>${li(p.mythen)}<h3>Was nachweislich wirkt</h3>${li(p.uebungen)}<h3>Meilensteine</h3>${li((p.meilensteine||[]).map(m=>m.wann+': '+m.messbar))}<h3>Recherche-Quellen</h3>${(p.quellen||[]).length?`<ul>${p.quellen.map(q=>`<li><a href="${esc(q.url)}" target="_blank" rel="noopener noreferrer">${esc(q.titel)}</a></li>`).join('')}</ul>`:'<p class="mut">Keine, nur KI-Wissen.</p>'}<p class="mut">${p.web?'Mit Websuche erstellt.':'Ohne Websuche erstellt (dafür Groq-Key eintragen).'}</p><div class="row"><button data-a="pathdel" data-j="${j}">Lernpfad entfernen</button></div></details>`}).join('')}</div>`;
   h+=`<div class="card"><h2>Was ich insgesamt erreichen will</h2><textarea id="goals" style="min-height:150px">${esc(S.goals)}</textarea><p class="mut">Fließt in jede Aufgabe, Lektion, Bewertung und den Plan ein.</p></div>`;
   h+=`<div class="card"><h2>Einstufungstest</h2>${testDay?`<p>Test vom ${esc(testDay[0])}: ${tdone} von ${ttot} abgegeben.${testDay[0]===today()&&tdone<ttot?' Die Aufgaben stehen unter „Heute“.':''}</p>`:'<p>Eine Aufgabe pro Bereich, mittlere Schwierigkeit, ca. 3 Minuten je Aufgabe. Ersetzt das heutige Training.</p>'}
   <div class="row">${btn('test',testDay?'Neuen Test starten':'Test starten',testDay?'':'p','make')}
@@ -599,6 +638,8 @@ function vSetup(){
   <label for="base">API-Adresse</label><input id="base" value="${esc(s.base)}" autocomplete="off">
   <label for="model">Modell</label><input id="model" value="${esc(s.model)}" autocomplete="off">
   <label for="key">API-Key</label><input id="key" type="password" value="${esc(s.key)}" autocomplete="off" placeholder="gsk_… oder AIza…">
+  <label for="gkey">Groq-Key nur für Web-Recherche (optional)</label><input id="gkey" type="password" value="${esc(s.gkey||'')}" autocomplete="off" placeholder="gsk_…">
+  <p class="mut">Damit sucht die App beim Erstellen von Lernpfaden im Web nach Curricula, Modulhandbüchern und Fachliteratur. Ohne ihn nutzt sie Wikipedia und KI-Wissen.</p>
   <div class="row">${btn('test2','Verbindung testen','','test')}</div><div class="err" id="err"></div></div>
   <div class="card"><h2>Datenschutz</h2>
   <ul><li>Alles liegt nur auf diesem Handy. Es gibt keinen Server, kein Konto, kein Tracking und keine fremden Schriften oder Skripte.</li>
@@ -640,7 +681,7 @@ $('v').addEventListener('input',e=>{
   if(t.id==='goals'){S.goals=t.value;save();return}
   if(t.id==='profil'){S.profil=t.value;save();return}
   if(t.id==='cin'){S.draft=t.value;save();return}
-  if(view==='setup'&&['base','model','key','lang','about','name'].includes(t.id)){S.set[t.id]=t.value;save()}
+  if(view==='setup'&&['base','model','key','gkey','lang','about','name'].includes(t.id)){S.set[t.id]=t.value;save()}
 });
 $('v').addEventListener('change',e=>{
   if(locked)return;const t=e.target;
@@ -690,7 +731,7 @@ $('v').addEventListener('click',async e=>{
   if(a==='lockoff'){if(!confirm('Sperre entfernen? Daten liegen dann unverschlüsselt auf dem Handy.'))return;K=null;SALT=null;await saveNow();render()}
   if(a==='locknow'){clearTimeout(st);await saveNow();location.reload()}
   if(a==='wipe'){if(!confirm('Wirklich ALLE Daten löschen? Das kann nicht rückgängig gemacht werden.'))return;locked=true;localStorage.removeItem('dt');localStorage.removeItem('dtx');location.reload()}
-  const bk={...S,set:{...S.set,key:''}};
+  const bk={...S,set:{...S.set,key:'',gkey:''}};
   if(a==='exp'){try{await navigator.clipboard.writeText(JSON.stringify(bk));$('bk').textContent='Kopiert (ohne API-Key).'}catch(err){$('imp').value=JSON.stringify(bk);$('bk').textContent='Kopieren ging nicht, Backup steht im Feld.'}}
   if(a==='dl'){const u=URL.createObjectURL(new Blob([JSON.stringify(bk)],{type:'application/json'}));const l=document.createElement('a');l.href=u;l.download='denktraining-'+today()+'.json';l.click();setTimeout(()=>URL.revokeObjectURL(u),2000)}
   if(a==='imp'){try{const d=JSON.parse($('imp').value);if(!d.res||!d.set)throw 0;const key=S.set.key;S=merge(d);if(!S.set.key)S.set.key=key;save();render();$('bk').textContent='Wiederhergestellt.'}catch(err){$('bk').textContent='Ungültiges Backup.'}}
