@@ -173,7 +173,7 @@ const prof=()=>`Nutzer: ${S.set.name}, ${S.set.about}\nZiele: ${S.goals}${pathCt
 /* ================= KI ================= */
 function fixJ(t){let o='',q=false,e=false;for(const ch of t){if(q){if(e){e=false;o+=ch;continue}if(ch==='\\'){e=true;o+=ch;continue}if(ch==='"'){q=false;o+=ch;continue}if(ch==='\n'){o+='\\n';continue}if(ch==='\r')continue;if(ch==='\t'){o+='\\t';continue}o+=ch}else{if(ch==='"')q=true;o+=ch}}return o.replace(/,\s*([}\]])/g,'$1')}
 function parseJ(c){c=String(c).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```(json)?/g,'');const ia=c.indexOf('['),io=c.indexOf('{');const arr=ia>=0&&(io<0||ia<io);const a=arr?ia:io,b=arr?c.lastIndexOf(']'):c.lastIndexOf('}');if(a<0||b<a)throw new Error('BADJSON');const t=c.slice(a,b+1);try{return JSON.parse(t)}catch(e){try{return JSON.parse(fixJ(t))}catch(e2){throw new Error('BADJSON')}}}
-const VER='18';
+const VER='19';
 const GMODELS=['gemini-flash-lite-latest','gemini-3.1-flash-lite','gemini-3.5-flash-lite','gemini-2.5-flash-lite','gemini-flash-latest'];
 let lastCall=0;
 async function ai(sys,msgs,json=true,retry=false){
@@ -331,6 +331,16 @@ async function wiki(term,lang='de'){
     return{titel:t,url:`https://${lang}.wikipedia.org/wiki/${encodeURIComponent(t.replace(/ /g,'_'))}`,text:pg.extract};
   }catch(e){return null}
 }
+async function openalex(term){
+  try{
+    const r=await (await fetch(`https://api.openalex.org/works?search=${encodeURIComponent(term)}&sort=cited_by_count:desc&per-page=4&select=title,publication_year,abstract_inverted_index,doi,id,authorships,cited_by_count,type`)).json();
+    return (r.results||[]).filter(w=>w.title).map(w=>{
+      let ab='';const ix=w.abstract_inverted_index;if(ix){const arr=[];for(const [wd,pos] of Object.entries(ix))pos.forEach(p=>arr[p]=wd);ab=arr.join(' ').slice(0,700)}
+      const au=(w.authorships||[]).slice(0,2).map(a=>a.author?.display_name).filter(Boolean).join(', ');
+      return{titel:`${w.title} (${au||'o. A.'}, ${w.publication_year||'?'}, ${w.cited_by_count} Zitierungen)`,url:w.doi||w.id,text:ab||'(kein Abstract)',typ:w.type};
+    });
+  }catch(e){return[]}
+}
 async function webResearch(f){
   const key=S.set.gkey||(/groq/.test(S.set.base)?S.set.key:'');if(!key)return null;
   try{
@@ -355,14 +365,15 @@ async function makePath(f){
   const K=progK;const sp=t=>setProg(t,K);
   sp('Suche Fachgebiete …');
   let terms=[];
-  try{const t=await ai('Antworte ausschließlich mit gültigem JSON auf Deutsch.',`Ziel: ${f.ziel}. Vorbild: ${f.vorbild||'-'}. Nenne 5 präzise Fachbegriffe (Disziplinen, Studienfächer, Methoden), die man für dieses Ziel wirklich lernen muss, als Suchbegriffe für Wikipedia. Format: {"begriffe":["..."]}`);terms=(t.begriffe||[]).slice(0,5)}catch(e){}
+  try{const t=await ai('Antworte ausschließlich mit gültigem JSON.',`Ziel: ${f.ziel}. Vorbild: ${f.vorbild||'-'}. Nenne 5 präzise englische Fachbegriffe für die Forschung, die man für dieses Ziel wirklich beherrschen muss (z. B. "deliberate practice expertise", "cross-examination persuasion", "behavioral analysis interviewing", "mechatronic system design"), als Suchbegriffe für eine wissenschaftliche Datenbank. Format: {"begriffe":["..."]}`);terms=(t.begriffe||[]).slice(0,5)}catch(e){}
   const src=[];
-  for(const [i,t] of terms.entries()){sp(`Lese Wikipedia ${i+1}/${terms.length} …`);const w=await wiki(t);if(w&&!src.some(x=>x.titel===w.titel))src.push(w)}
+  for(const [i,t] of terms.entries()){sp(`Durchsuche Forschung ${i+1}/${terms.length} …`);(await openalex(t)).forEach(w=>{if(!src.some(x=>x.titel===w.titel))src.push(w)})}
+  if(!src.length)for(const t of terms.slice(0,3)){sp('Forschungsdatenbank nicht erreichbar, nutze Wikipedia …');const w=await wiki(t,'en');if(w)src.push({...w,titel:'Wikipedia: '+w.titel})}
   sp('Websuche über Groq …');
   const web=await webResearch(f);
   sp('Baue Lernpfad …');
-  f.material=(web?`WEB-RECHERCHE (Curricula, Fachliteratur, Forschung):\n${web}\n\n`:'')+(src.length?'WIKIPEDIA-AUSZÜGE:\n'+src.map(x=>`[${x.titel}] ${x.text}`).join('\n\n'):'');
-  f.quellen=[...src.map(x=>({titel:'Wikipedia: '+x.titel,url:x.url}))];
+  f.material=(web?`WEB-RECHERCHE (Curricula, Fachliteratur, Forschung):\n${web}\n\n`:'')+(src.length?'MEISTZITIERTE FORSCHUNG UND LEHRBÜCHER (OpenAlex):\n'+src.slice(0,16).map(x=>`[${x.titel}] ${x.text}`).join('\n\n'):'');
+  f.quellen=[...src.slice(0,16).map(x=>({titel:x.titel,url:x.url}))];
   if(web)(web.match(/https?:\/\/[^\s)\]>"]+/g)||[]).slice(0,12).forEach(u=>{if(!f.quellen.some(q=>q.url===u))f.quellen.push({titel:u.replace(/^https?:\/\//,'').slice(0,60),url:u})});
   f.web=!!web;
   await makePathCore(f);sp('');
@@ -371,7 +382,7 @@ async function makePathCore(f){
   const sys=`Du bist Lerndesigner und Experte für Expertise-Forschung (Deliberate Practice, Transfer, Lernpsychologie). Du analysierst, was echte Spitzenkönner in einem Gebiet konkret anders und besser machen, und baust daraus einen Lernpfad mit echtem Fachwissen aus Forschung, Fachliteratur und Praxis der Profis, nicht mit Allgemeinplätzen. Übersetze Vorbilder aus Filmen oder Serien in reale Berufe und Fähigkeiten. Trenne ehrlich, was belegt ist und was Mythos ist. Erfinde keine Quellen: Bist du bei einem Titel unsicher, nenne Forscher oder Fachgebiet. ${PRIO}
 ${prof()}
 Antworte ausschließlich mit gültigem JSON auf Deutsch.`;
-  const user=`${f.material?`Recherche-Material (nutze es als Grundlage: was man in Studium und Ausbildung wirklich lernt, Standardwerke, was Spitzenleute anders machen):\n${f.material.slice(0,9000)}\n\n`:''}Ziel: ${f.ziel}\nVorbild bzw. so gut wie: ${f.vorbild||'nicht angegeben'}\nWofür: ${f.wofuer||'nicht angegeben'}\nWie gut, bis wann: ${f.niveau||'nicht angegeben'}\n\nFormat:\n{"titel":"kurzer Name","rolle":"reale Expertenrolle(n) als Maßstab","kern":"was diese Experten wirklich besser können, 2-3 Sätze","faehigkeiten":["konkrete Teilfähigkeiten"],"bausteine":[{"titel":"Technik, Methode oder Wissensbaustein","inhalt":"1 Satz","quelle":"Studie, Forscher, Buch oder Praxis","evidenz":"stark|mittel|schwach|umstritten"}],"mythen":["was oft behauptet wird, aber nicht stimmt"],"uebungen":["Übungsformen, die nachweislich wirken"],"meilensteine":[{"wann":"z. B. nach 4 Wochen","messbar":"woran erkennbar"}]}\n12 bis 18 Bausteine, vom Fundament zum Profi-Niveau sortiert. Alle Texte kurz halten.`;
+  const user=`Beziehe dich auch auf das, was in echten Studien- und Ausbildungsgängen gelehrt wird (Modulhandbücher deutscher und internationaler Hochschulen, Polizei-/Fachhochschulen, Standardlehrbücher), soweit du es sicher weißt, und kennzeichne das. ${f.material?`Recherche-Material (nutze es als Grundlage, besonders die meistzitierten Studien):\n${f.material.slice(0,9000)}\n\n`:''}Ziel: ${f.ziel}\nVorbild bzw. so gut wie: ${f.vorbild||'nicht angegeben'}\nWofür: ${f.wofuer||'nicht angegeben'}\nWie gut, bis wann: ${f.niveau||'nicht angegeben'}\n\nFormat:\n{"titel":"kurzer Name","rolle":"reale Expertenrolle(n) als Maßstab","kern":"was diese Experten wirklich besser können, 2-3 Sätze","faehigkeiten":["konkrete Teilfähigkeiten"],"bausteine":[{"titel":"Technik, Methode oder Wissensbaustein","inhalt":"1 Satz","quelle":"Studie, Forscher, Buch oder Praxis","evidenz":"stark|mittel|schwach|umstritten"}],"mythen":["was oft behauptet wird, aber nicht stimmt"],"uebungen":["Übungsformen, die nachweislich wirken"],"meilensteine":[{"wann":"z. B. nach 4 Wochen","messbar":"woran erkennbar"}]}\n12 bis 18 Bausteine, vom Fundament zum Profi-Niveau sortiert. Alle Texte kurz halten.`;
   const p=await ai(sys,user);
   S.paths.push({...p,id:Date.now().toString(36),ziel:f.ziel,vorbild:f.vorbild,d:today(),quellen:f.quellen||[],web:!!f.web});save();
 }
@@ -589,7 +600,7 @@ function vPlan(){
   <label for="pw2x">Wofür?</label><input id="pw2x" placeholder="z. B. Diskussionen, Bewerbung, Studium, Kunden">
   <label for="pn">Wie gut, bis wann?</label><input id="pn" placeholder="z. B. in 3 Monaten deutlich besser als jetzt">
   <div class="row">${btn('path','Lernpfad erstellen','p','path')}</div><div class="err" id="patherr"></div>
-  ${S.paths.map((p,j)=>{const n=(p.bausteine||[]).length,dn=(p.bausteine||[]).filter((b,i)=>S.tech['pfad:'+p.id+':'+i]).length;return `<details><summary>${esc(p.titel)} · ${dn}/${n}</summary><p class="mut">Maßstab: ${esc(p.rolle)}</p><div class="txt">${esc(p.kern)}</div><h3>Fähigkeiten</h3>${li(p.faehigkeiten)}<h3>Bausteine</h3><ul>${(p.bausteine||[]).map((b,i)=>`<li>${S.tech['pfad:'+p.id+':'+i]?'✓ ':''}<b>${esc(b.titel)}</b>: ${esc(b.inhalt)} <span class="mut">(${esc(b.quelle)} · Beleglage ${esc(b.evidenz)})</span></li>`).join('')}</ul><h3>Mythen</h3>${li(p.mythen)}<h3>Was nachweislich wirkt</h3>${li(p.uebungen)}<h3>Meilensteine</h3>${li((p.meilensteine||[]).map(m=>m.wann+': '+m.messbar))}<h3>Recherche-Quellen</h3>${(p.quellen||[]).length?`<ul>${p.quellen.map(q=>`<li><a href="${esc(q.url)}" target="_blank" rel="noopener noreferrer">${esc(q.titel)}</a></li>`).join('')}</ul>`:'<p class="mut">Keine, nur KI-Wissen.</p>'}<p class="mut">${p.web?'Mit Websuche erstellt.':'Ohne Websuche erstellt (dafür Groq-Key eintragen).'}</p><div class="row"><button data-a="pathdel" data-j="${j}">Lernpfad entfernen</button></div></details>`}).join('')}</div>`;
+  ${S.paths.map((p,j)=>{const n=(p.bausteine||[]).length,dn=(p.bausteine||[]).filter((b,i)=>S.tech['pfad:'+p.id+':'+i]).length;return `<details><summary>${esc(p.titel)} · ${dn}/${n}</summary><p class="mut">Maßstab: ${esc(p.rolle)}</p><div class="txt">${esc(p.kern)}</div><h3>Fähigkeiten</h3>${li(p.faehigkeiten)}<h3>Bausteine</h3><ul>${(p.bausteine||[]).map((b,i)=>`<li>${S.tech['pfad:'+p.id+':'+i]?'✓ ':''}<b>${esc(b.titel)}</b>: ${esc(b.inhalt)} <span class="mut">(${esc(b.quelle)} · Beleglage ${esc(b.evidenz)})</span></li>`).join('')}</ul><h3>Mythen</h3>${li(p.mythen)}<h3>Was nachweislich wirkt</h3>${li(p.uebungen)}<h3>Meilensteine</h3>${li((p.meilensteine||[]).map(m=>m.wann+': '+m.messbar))}<h3>Recherche-Quellen</h3>${(p.quellen||[]).length?`<ul>${p.quellen.map(q=>`<li><a href="${esc(q.url)}" target="_blank" rel="noopener noreferrer">${esc(q.titel)}</a></li>`).join('')}</ul>`:'<p class="mut">Keine, nur KI-Wissen.</p>'}<p class="mut">${p.web?'Mit Websuche erstellt.':'Mit Forschungsdatenbank, ohne Websuche (dafür Groq-Key eintragen).'}</p><div class="row"><button data-a="pathdel" data-j="${j}">Lernpfad entfernen</button></div></details>`}).join('')}</div>`;
   h+=`<div class="card"><h2>Was ich insgesamt erreichen will</h2><textarea id="goals" style="min-height:150px">${esc(S.goals)}</textarea><p class="mut">Fließt in jede Aufgabe, Lektion, Bewertung und den Plan ein.</p></div>`;
   h+=`<div class="card"><h2>Einstufungstest</h2>${testDay?`<p>Test vom ${esc(testDay[0])}: ${tdone} von ${ttot} abgegeben.${testDay[0]===today()&&tdone<ttot?' Die Aufgaben stehen unter „Heute“.':''}</p>`:'<p>Eine Aufgabe pro Bereich, mittlere Schwierigkeit, ca. 3 Minuten je Aufgabe. Ersetzt das heutige Training.</p>'}
   <div class="row">${btn('test',testDay?'Neuen Test starten':'Test starten',testDay?'':'p','make')}
@@ -720,7 +731,7 @@ function vSetup(){
   <label for="model">Modell</label><input id="model" value="${esc(s.model)}" autocomplete="off">
   <label for="key">API-Key</label><input id="key" type="password" value="${esc(s.key)}" autocomplete="off" placeholder="gsk_… oder AIza…">
   <label for="gkey">Groq-Key nur für Web-Recherche (optional)</label><input id="gkey" type="password" value="${esc(s.gkey||'')}" autocomplete="off" placeholder="gsk_…">
-  <p class="mut">Damit sucht die App beim Erstellen von Lernpfaden im Web nach Curricula, Modulhandbüchern und Fachliteratur. Ohne ihn nutzt sie Wikipedia und KI-Wissen.</p>
+  <p class="mut">Damit sucht die App beim Erstellen von Lernpfaden im Web nach Curricula, Modulhandbüchern und Fachliteratur. Ohne ihn nutzt sie die Forschungsdatenbank OpenAlex und KI-Wissen.</p>
   <div class="row">${btn('test2','Verbindung testen','','test')}</div><div class="err" id="err"></div></div>
   <div class="card"><h2>Datenschutz</h2>
   <ul><li>Alles liegt nur auf diesem Handy. Es gibt keinen Server, kein Konto, kein Tracking und keine fremden Schriften oder Skripte.</li>
