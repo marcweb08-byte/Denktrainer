@@ -173,7 +173,7 @@ const prof=()=>`Nutzer: ${S.set.name}, ${S.set.about}\nZiele: ${S.goals}${pathCt
 /* ================= KI ================= */
 function fixJ(t){let o='',q=false,e=false;for(const ch of t){if(q){if(e){e=false;o+=ch;continue}if(ch==='\\'){e=true;o+=ch;continue}if(ch==='"'){q=false;o+=ch;continue}if(ch==='\n'){o+='\\n';continue}if(ch==='\r')continue;if(ch==='\t'){o+='\\t';continue}o+=ch}else{if(ch==='"')q=true;o+=ch}}return o.replace(/,\s*([}\]])/g,'$1')}
 function parseJ(c){c=String(c).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```(json)?/g,'');const ia=c.indexOf('['),io=c.indexOf('{');const arr=ia>=0&&(io<0||ia<io);const a=arr?ia:io,b=arr?c.lastIndexOf(']'):c.lastIndexOf('}');if(a<0||b<a)throw new Error('BADJSON');const t=c.slice(a,b+1);try{return JSON.parse(t)}catch(e){try{return JSON.parse(fixJ(t))}catch(e2){throw new Error('BADJSON')}}}
-const VER='17';
+const VER='18';
 const GMODELS=['gemini-flash-lite-latest','gemini-3.1-flash-lite','gemini-3.5-flash-lite','gemini-2.5-flash-lite','gemini-flash-latest'];
 let lastCall=0;
 async function ai(sys,msgs,json=true,retry=false){
@@ -263,9 +263,9 @@ async function genTasks(slots,per){
 async function makeDay(type){
   const t=today();
   if(type==='test'){
-    const all=DAILY.filter(k=>S.set.cats[k]).map(k=>({k,lv:3})),tasks=[];
-    for(let i=0;i<all.length;i+=4){setProg(`Aufgaben ${i}/${all.length} erstellt …`);tasks.push(...await genTasks(all.slice(i,i+4),3))}
-    setProg('');
+    const K=progK,all=DAILY.filter(k=>S.set.cats[k]).map(k=>({k,lv:3})),tasks=[];
+    for(let i=0;i<all.length;i+=4){setProg(`Aufgaben ${i}/${all.length} erstellt …`,K);tasks.push(...await genTasks(all.slice(i,i+4),3))}
+    setProg('',K);
     S.days[t]={type:'test',tasks,lesson:null};save();return;
   }
   const N={10:4,20:6,30:8}[S.set.min]||6;
@@ -352,19 +352,20 @@ async function runGoalQ(all){
   for(const g of list){await makePath({...g});S.goalQ=S.goalQ.filter(x=>x!==g);save()}
 }
 async function makePath(f){
-  setProg('Suche Fachgebiete …');
+  const K=progK;const sp=t=>setProg(t,K);
+  sp('Suche Fachgebiete …');
   let terms=[];
   try{const t=await ai('Antworte ausschließlich mit gültigem JSON auf Deutsch.',`Ziel: ${f.ziel}. Vorbild: ${f.vorbild||'-'}. Nenne 5 präzise Fachbegriffe (Disziplinen, Studienfächer, Methoden), die man für dieses Ziel wirklich lernen muss, als Suchbegriffe für Wikipedia. Format: {"begriffe":["..."]}`);terms=(t.begriffe||[]).slice(0,5)}catch(e){}
   const src=[];
-  for(const [i,t] of terms.entries()){setProg(`Lese Wikipedia ${i+1}/${terms.length} …`);const w=await wiki(t);if(w&&!src.some(x=>x.titel===w.titel))src.push(w)}
-  setProg('Websuche über Groq …');
+  for(const [i,t] of terms.entries()){sp(`Lese Wikipedia ${i+1}/${terms.length} …`);const w=await wiki(t);if(w&&!src.some(x=>x.titel===w.titel))src.push(w)}
+  sp('Websuche über Groq …');
   const web=await webResearch(f);
-  setProg('Baue Lernpfad …');
+  sp('Baue Lernpfad …');
   f.material=(web?`WEB-RECHERCHE (Curricula, Fachliteratur, Forschung):\n${web}\n\n`:'')+(src.length?'WIKIPEDIA-AUSZÜGE:\n'+src.map(x=>`[${x.titel}] ${x.text}`).join('\n\n'):'');
   f.quellen=[...src.map(x=>({titel:'Wikipedia: '+x.titel,url:x.url}))];
   if(web)(web.match(/https?:\/\/[^\s)\]>"]+/g)||[]).slice(0,12).forEach(u=>{if(!f.quellen.some(q=>q.url===u))f.quellen.push({titel:u.replace(/^https?:\/\//,'').slice(0,60),url:u})});
   f.web=!!web;
-  await makePathCore(f);setProg('');
+  await makePathCore(f);sp('');
 }
 async function makePathCore(f){
   const sys=`Du bist Lerndesigner und Experte für Expertise-Forschung (Deliberate Practice, Transfer, Lernpsychologie). Du analysierst, was echte Spitzenkönner in einem Gebiet konkret anders und besser machen, und baust daraus einen Lernpfad mit echtem Fachwissen aus Forschung, Fachliteratur und Praxis der Profis, nicht mit Allgemeinplätzen. Übersetze Vorbilder aus Filmen oder Serien in reale Berufe und Fähigkeiten. Trenne ehrlich, was belegt ist und was Mythos ist. Erfinde keine Quellen: Bist du bei einem Titel unsicher, nenne Forscher oder Fachgebiet. ${PRIO}
@@ -498,8 +499,8 @@ async function debEnd(){
 
 /* ================= Ansichten ================= */
 function head(t,s,p){$('ht').textContent=t;$('hs').textContent=s||'';$('hp').hidden=p==null;if(p!=null)$('hp').firstChild.style.width=p+'%'}
-let prog='';const setProg=t=>{prog=t;document.querySelectorAll('.pg').forEach(e=>e.textContent=t||'Moment …')};
-const btn=(a,label,cls='',bk=a,extra='')=>`<button class="${cls}" data-a="${a}" ${extra} ${busy[bk]?'disabled':''}>${busy[bk]?`<span class="spin"></span><span class="pg">${prog||'Moment …'}</span>`:label}</button>`;
+let prog={},progK='';const setProg=(t,k=progK)=>{if(!k)return;prog[k]=t;document.querySelectorAll(`.pg[data-k="${k}"]`).forEach(e=>e.textContent=t||'Moment …')};
+const btn=(a,label,cls='',bk=a,extra='')=>`<button class="${cls}" data-a="${a}" ${extra} ${busy[bk]?'disabled':''}>${busy[bk]?`<span class="spin"></span><span class="pg" data-k="${bk}">${prog[bk]||'Moment …'}</span>`:label}</button>`;
 const cyc=()=>`<div class="tip" id="cyc" ${busy.cycle?'':'hidden'}><span class="spin"></span>Wochenauswertung läuft im Hintergrund: Profil, Fokus und Plan werden angepasst.</div>`;
 function vLock(){
   head('Gesperrt','Daten sind verschlüsselt');
@@ -751,7 +752,7 @@ function render(){
 }
 const showErr=(id,e)=>{const el=$(id);if(el)el.textContent=e.message||String(e)};
 const go=v=>{if(locked)return;view=v;render();scrollTo(0,0)};
-async function run(key,fn,errId='err'){busy[key]=1;render();try{await fn();busy[key]=0;render();return true}catch(e){busy[key]=0;render();showErr(errId,e);return false}}
+async function run(key,fn,errId='err'){busy[key]=1;progK=key;prog[key]='';render();try{await fn();busy[key]=0;render();return true}catch(e){busy[key]=0;render();showErr(errId,e);return false}}
 
 /* ================= Events ================= */
 document.body.addEventListener('click',e=>{const b=e.target.closest('[data-go],nav button');if(b)go(b.dataset.go||b.dataset.v)});
