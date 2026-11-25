@@ -117,7 +117,7 @@ ausdruck:{n:'Struktur & Ausdruck',l:['Pyramidenprinzip (Minto)','SCQA-Einstieg',
 lernen:{n:'Lernen & Gedächtnis',l:['Feynman-Methode','Abrufen statt Wiederlesen','Spaced Repetition','Interleaving','Elaboration: Warum-Fragen','Gedächtnispalast (Loci)','Major-System für Zahlen','Chunking','Fehlerjournal','Wissen übertragen (Transfer)']}
 };
 const PRIO='Priorität nach Alltagsnutzen: 1. Smalltalk und souveränes Gesprächsverhalten, 2. sich präzise, geordnet und schön ausdrücken, 3. klar denken und Probleme lösen, 4. überzeugen, argumentieren, Kunstgriffe erkennen und kontern, danach der Rest.';
-const PRESETS={groq:{base:'https://api.groq.com/openai/v1',model:'openai/gpt-oss-120b'},gemini:{base:'https://generativelanguage.googleapis.com/v1beta/openai',model:'gemini-flash-latest'},openrouter:{base:'https://openrouter.ai/api/v1',model:'openai/gpt-oss-120b:free'},eigen:{base:'',model:''}};
+const PRESETS={groq:{base:'https://api.groq.com/openai/v1',model:'openai/gpt-oss-120b'},gemini:{base:'https://generativelanguage.googleapis.com/v1beta/openai',model:'gemini-flash-lite-latest'},openrouter:{base:'https://openrouter.ai/api/v1',model:'openai/gpt-oss-120b:free'},eigen:{base:'',model:''}};
 const GOALS='Logischer denken (Mathe, Physik, Mechatronik) und bei jedem Problem sehr gute Lösungsansätze finden. Smalltalk sicher beherrschen. Gedanken geordnet, präzise und schön ausdrücken, auch Prompts. In Alltagssituationen (Stress, Ärger) souverän reagieren. Argumentieren, überzeugen, Diskussionen gewinnen, Rhetorische Kunstgriffe, Fehlschlüsse und Manipulation (z. B. Schopenhauer, aber nicht nur) erkennen, kontern und selbst beherrschen. Menschen analysieren, Profile erstellen, Fälle lösen, das Gesamtbild sehen. Rechtschreibung, Fremdsprache, Allgemeinwissen, Einstellungstests. Nicht nur Oberfläche, sondern Fortgeschrittenes, das die wenigsten können, und es wirklich anwenden können.';
 const DEF={set:{prov:'groq',base:PRESETS.groq.base,model:PRESETS.groq.model,key:'',min:20,words:1,lang:'Englisch',name:'Marc',about:'18 Jahre, duales Maschinenbau-Studium, Freelance-Webentwickler, Ju-Jutsu-Trainerassistent.',cats:Object.fromEntries(DAILY.map(k=>[k,true]))},goals:GOALS,days:{},res:[],words:[],lvl:{},ana:null,plan:null,tech:{},techN:0,chat:[],deb:null,ctx:null,profil:'',err:{},tut:null,topics:{},lastCycle:'',paths:[]};
 
@@ -137,7 +137,7 @@ async function saveNow(){
   }catch(e){}
 }
 const save=()=>{clearTimeout(st);st=setTimeout(saveNow,300)};
-try{if(localStorage.getItem('dtx'))locked=true;else S=merge(JSON.parse(localStorage.getItem('dt')||'{}'))}catch(e){S=structuredClone(DEF)}
+try{if(localStorage.getItem('dtx'))locked=true;else{const L=JSON.parse(localStorage.getItem('dt')||'{}');if(L.set&&L.set.model==='gemini-flash-latest'){L.set.model='gemini-flash-lite-latest';localStorage.setItem('dt',JSON.stringify(L))}}if(locked);else S=merge(JSON.parse(localStorage.getItem('dt')||'{}'))}catch(e){S=structuredClone(DEF)}
 async function unlock(pass){
   const o=JSON.parse(localStorage.getItem('dtx'));const salt=unb64(o.salt);const k=await derive(pass,salt);
   let plain;try{plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(o.iv)},k,unb64(o.data))}catch(e){throw new Error('Falsches Passwort.')}
@@ -163,6 +163,7 @@ const prof=()=>`Nutzer: ${S.set.name}, ${S.set.about}\nZiele: ${S.goals}${pathCt
 
 /* ================= KI ================= */
 function parseJ(c){c=String(c).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```(json)?/g,'');const a=c.indexOf('{'),b=c.lastIndexOf('}');if(a<0)throw new Error('Keine gültige Antwort vom Modell. Nochmal versuchen.');return JSON.parse(c.slice(a,b+1))}
+let lastCall=0;
 async function ai(sys,msgs,json=true){
   const s=S.set;
   if(!s.base||!s.model)throw new Error('API-Adresse und Modell unter Einstellungen eintragen.');
@@ -171,15 +172,18 @@ async function ai(sys,msgs,json=true){
   const body={model:s.model,messages:[{role:'system',content:sys},...msgs],temperature:.8};
   if(json)body.response_format={type:'json_object'};
   if((/gpt-oss/.test(s.model)&&/groq/.test(s.base))||/googleapis/.test(s.base))body.reasoning_effort='low';
+  if(/googleapis/.test(s.base)){const w=lastCall+7000-Date.now();if(w>0)await sleep(w)}lastCall=Date.now();
   const go=()=>{const ac=new AbortController();const to=setTimeout(()=>ac.abort(),90000);return fetch(s.base.replace(/\/$/,'')+'/chat/completions',{signal:ac.signal,method:'POST',referrerPolicy:'no-referrer',headers:{'Content-Type':'application/json',Authorization:'Bearer '+s.key},body:JSON.stringify(body)}).finally(()=>clearTimeout(to))};
   let r;
   for(let tries=0;;tries++){
     try{r=await go()}catch(e){if(e.name==='AbortError'&&tries<1){continue}throw new Error(e.name==='AbortError'?'Die KI hat zu lange nicht geantwortet. Nochmal versuchen oder ein anderes Modell wählen.':'Keine Verbindung zur KI. Internet oder Adresse prüfen.')}
     if(r.status===400&&body.response_format){delete body.response_format;delete body.reasoning_effort;continue}
-    if(r.status===429&&tries<2){const ra=+r.headers.get('retry-after')||15;await sleep(Math.min(40,ra)*1000+500);continue}
-    if([500,502,503,504].includes(r.status)&&tries<4){
-      if(tries===2&&/googleapis/.test(s.base)&&body.model!=='gemini-flash-lite-latest')body.model='gemini-flash-lite-latest';
-      await sleep([2000,5000,4000,8000][tries]);continue}
+    if(r.status===429){const t=await r.clone().text();
+      if(/PerDay|per day|daily/i.test(t))throw new Error('Tageslimit für dieses Modell erreicht. Ab 9 Uhr geht es wieder, oder unter Einstellungen ein anderes Modell bzw. Groq wählen.');
+      if(tries<2){const m=t.match(/retryDelay"?:\s*"?(\d+)/);const ra=+(m&&m[1])||+r.headers.get('retry-after')||15;await sleep(Math.min(60,ra)*1000+500);continue}}
+    if([500,502,503,504].includes(r.status)&&tries<2){
+      if(/googleapis/.test(s.base)&&body.model!=='gemini-flash-lite-latest')body.model='gemini-flash-lite-latest';
+      await sleep([3000,8000][tries]);continue}
     break;
   }
   if(r.status===429)throw new Error('Limit der Gratis-API erreicht. Eine Minute warten und nochmal versuchen.');
@@ -584,7 +588,7 @@ function vSetup(){
   head('Einstellungen','KI, Umfang, Datenschutz');
   const s=S.set;
   return `<div class="card"><h2>KI-Modell</h2>
-  <label for="prov">Anbieter</label><select id="prov"><option value="groq">Groq (gratis, schnell, Open Source)</option><option value="gemini">Google Gemini (gratis, sehr gut)</option><option value="openrouter">OpenRouter (Gratis-Modelle)</option><option value="eigen">Eigene Adresse (z. B. später KAIRO)</option></select>
+  <label for="prov">Anbieter</label><select id="prov"><option value="groq">Groq (gratis, schnell, Open Source)</option><option value="gemini">Google Gemini Flash-Lite (gratis, 500/Tag)</option><option value="openrouter">OpenRouter (Gratis-Modelle)</option><option value="eigen">Eigene Adresse (z. B. später KAIRO)</option></select>
   <label for="base">API-Adresse</label><input id="base" value="${esc(s.base)}" autocomplete="off">
   <label for="model">Modell</label><input id="model" value="${esc(s.model)}" autocomplete="off">
   <label for="key">API-Key</label><input id="key" type="password" value="${esc(s.key)}" autocomplete="off" placeholder="gsk_… oder AIza…">
