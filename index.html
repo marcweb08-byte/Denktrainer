@@ -176,7 +176,7 @@ const prof=()=>`Nutzer: ${S.set.name}, ${S.set.about}\nZiele: ${S.goals}${pathCt
 /* ================= KI ================= */
 function fixJ(t){let o='',q=false,e=false;for(const ch of t){if(q){if(e){e=false;o+=ch;continue}if(ch==='\\'){e=true;o+=ch;continue}if(ch==='"'){q=false;o+=ch;continue}if(ch==='\n'){o+='\\n';continue}if(ch==='\r')continue;if(ch==='\t'){o+='\\t';continue}o+=ch}else{if(ch==='"')q=true;o+=ch}}return o.replace(/,\s*([}\]])/g,'$1')}
 function parseJ(c){c=String(c).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```(json)?/g,'');const ia=c.indexOf('['),io=c.indexOf('{');const arr=ia>=0&&(io<0||ia<io);const a=arr?ia:io,b=arr?c.lastIndexOf(']'):c.lastIndexOf('}');if(a<0||b<a)throw new Error('BADJSON');const t=c.slice(a,b+1);try{return JSON.parse(t)}catch(e){try{return JSON.parse(fixJ(t))}catch(e2){throw new Error('BADJSON')}}}
-const VER='23';
+const VER='24';
 const GMODELS=['gemini-flash-lite-latest','gemini-3.1-flash-lite','gemini-3.5-flash-lite','gemini-2.5-flash-lite','gemini-flash-latest'];
 let lastCall=0;
 const waitVisible=()=>document.hidden?new Promise(r=>{const f=()=>{if(!document.hidden){document.removeEventListener('visibilitychange',f);r()}};document.addEventListener('visibilitychange',f)}):Promise.resolve();
@@ -561,7 +561,8 @@ function vHeute(){
   const remind=(S.plan&&lastTest&&daysBetween(lastTest[0],today())>=30?`<div class="card lesson"><h2>Zeit für den Monats-Test</h2><p class="mut">Gleiche Bereiche wie beim letzten Einstufungstest. So siehst du schwarz auf weiß, was du verbessert hast.</p><div class="row"><button class="p" data-go="plan">Zum Test</button></div></div>`:'')+
     (S.res.length>=10&&(!S.lastBackup||daysBetween(S.lastBackup,today())>=7)?`<div class="card"><b>Backup fällig.</b> <span class="mut">Deine Daten liegen nur auf diesem Handy.</span><div class="row"><button data-go="setup">Backup machen</button></div></div>`:'');
   const inc=d.type==='test'&&d.tasks.length<(d.want||0)?`<div class="card lesson"><h2>Test unvollständig</h2><p class="mut">${d.tasks.length} von ${d.want} Aufgaben sind da und gespeichert. Du kannst schon anfangen, der Rest wird nachgeladen.</p><div class="row">${btn('test','Restliche Aufgaben laden','p','make')}</div><div class="err" id="err"></div></div>`:'';
-  return cyc()+inc+miniCard()+remind+missionCard()+(d.type==='test'&&done>=Math.ceil(tot*.6)?`<div class="card lesson"><h2>Genug für die Einschätzung</h2><p class="mut">Im Plan die Einschätzung und den Lernplan erstellen.</p><div class="row"><button class="p" data-go="plan">Zum Plan</button></div></div>`:'')+
+  const testHead=d.type==='test'?`<div class="card lesson"><div class="kat">Einstufungstest</div><h2>${d.tasks.length} Aufgaben, eine pro Bereich</h2><p class="mut">Beantworte sie der Reihe nach. Ehrlich und ohne Denkanstoß, sonst stimmt die Einstufung nicht. Nach mindestens ${Math.ceil(d.tasks.length*.6)} abgegebenen unter Plan den Lernplan erstellen.</p></div>`:'';
+  return cyc()+testHead+inc+miniCard()+(d.type==='test'?'':remind+missionCard())+(d.type==='test'&&done>=Math.ceil(tot*.6)?`<div class="card lesson"><h2>Genug für die Einschätzung</h2><p class="mut">Im Plan die Einschätzung und den Lernplan erstellen.</p><div class="row"><button class="p" data-go="plan">Zum Plan</button></div></div>`:'')+
    (L?lessonCard(L,true):'')+d.tasks.map((t,i)=>card(t,i)).join('')+
    `<div class="card"><div class="row">${btn('remake','Neue Aufgaben für heute','','make')}</div><div class="err" id="err"></div></div>`;
 }
