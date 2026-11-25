@@ -119,7 +119,7 @@ lernen:{n:'Lernen & Gedächtnis',l:['Feynman-Methode','Abrufen statt Wiederlesen
 const PRIO='Priorität nach Alltagsnutzen: 1. Smalltalk und souveränes Gesprächsverhalten, 2. sich präzise, geordnet und schön ausdrücken, 3. klar denken und Probleme lösen, 4. überzeugen, argumentieren, Kunstgriffe erkennen und kontern, danach der Rest.';
 const PRESETS={groq:{base:'https://api.groq.com/openai/v1',model:'openai/gpt-oss-120b'},gemini:{base:'https://generativelanguage.googleapis.com/v1beta/openai',model:'gemini-flash-latest'},openrouter:{base:'https://openrouter.ai/api/v1',model:'openai/gpt-oss-120b:free'},eigen:{base:'',model:''}};
 const GOALS='Logischer denken (Mathe, Physik, Mechatronik) und bei jedem Problem sehr gute Lösungsansätze finden. Smalltalk sicher beherrschen. Gedanken geordnet, präzise und schön ausdrücken, auch Prompts. In Alltagssituationen (Stress, Ärger) souverän reagieren. Argumentieren, überzeugen, Diskussionen gewinnen, Rhetorische Kunstgriffe, Fehlschlüsse und Manipulation (z. B. Schopenhauer, aber nicht nur) erkennen, kontern und selbst beherrschen. Menschen analysieren, Profile erstellen, Fälle lösen, das Gesamtbild sehen. Rechtschreibung, Fremdsprache, Allgemeinwissen, Einstellungstests. Nicht nur Oberfläche, sondern Fortgeschrittenes, das die wenigsten können, und es wirklich anwenden können.';
-const DEF={set:{prov:'groq',base:PRESETS.groq.base,model:PRESETS.groq.model,key:'',min:20,words:1,lang:'Englisch',name:'Marc',about:'18 Jahre, duales Maschinenbau-Studium, Freelance-Webentwickler, Ju-Jutsu-Trainerassistent.',cats:Object.fromEntries(DAILY.map(k=>[k,true]))},goals:GOALS,days:{},res:[],words:[],lvl:{},ana:null,plan:null,tech:{},techN:0,chat:[],deb:null,ctx:null,profil:'',err:{},tut:null,topics:{},lastCycle:''};
+const DEF={set:{prov:'groq',base:PRESETS.groq.base,model:PRESETS.groq.model,key:'',min:20,words:1,lang:'Englisch',name:'Marc',about:'18 Jahre, duales Maschinenbau-Studium, Freelance-Webentwickler, Ju-Jutsu-Trainerassistent.',cats:Object.fromEntries(DAILY.map(k=>[k,true]))},goals:GOALS,days:{},res:[],words:[],lvl:{},ana:null,plan:null,tech:{},techN:0,chat:[],deb:null,ctx:null,profil:'',err:{},tut:null,topics:{},lastCycle:'',paths:[]};
 
 /* ================= Speicher & Verschlüsselung ================= */
 const enc=new TextEncoder(),dec=new TextDecoder();
@@ -156,8 +156,10 @@ const li=a=>Array.isArray(a)&&a.length?`<ul>${a.map(x=>`<li>${esc(typeof x==='ob
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 let view=locked?'lock':'heute',busy={},coachMode='frage';
 const topErr=n=>Object.entries(S.err).filter(([,e])=>!e.done).sort((a,b)=>b[1].n/(1+daysBetween(b[1].last,today())/14)-a[1].n/(1+daysBetween(a[1].last,today())/14)).slice(0,n);
+const modName=x=>x.mod==='pfad'?'LERNPFAD: '+(S.paths.find(p=>p.id===x.pfad)?.titel||'Ziel'):(MOD[x.mod]?.n||'');
 const planCtx=()=>S.plan?`\nLernplan-Ziele: ${(S.plan.ziele||[]).map(z=>z.ziel||z).slice(0,4).join('; ')}`:'';
-const prof=()=>`Nutzer: ${S.set.name}, ${S.set.about}\nZiele: ${S.goals}${S.profil?`\nLernerprofil (wie er lernt, Stärken, Schwächen): ${S.profil}`:''}${topErr(5).length?`\nWiederkehrende Fehler: ${topErr(5).map(([k,e])=>`${k} (${e.n}×)`).join('; ')}`:''}${planCtx()}`;
+const pathCtx=()=>S.paths.length?`\nLernpfade (Maßstab sind echte Experten): ${S.paths.map(p=>`${p.titel} → wie ${p.rolle}`).join('; ')}`:'';
+const prof=()=>`Nutzer: ${S.set.name}, ${S.set.about}\nZiele: ${S.goals}${pathCtx()}${S.profil?`\nLernerprofil (wie er lernt, Stärken, Schwächen): ${S.profil}`:''}${topErr(5).length?`\nWiederkehrende Fehler: ${topErr(5).map(([k,e])=>`${k} (${e.n}×)`).join('; ')}`:''}${planCtx()}`;
 
 /* ================= KI ================= */
 function parseJ(c){c=String(c).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```(json)?/g,'');const a=c.indexOf('{'),b=c.lastIndexOf('}');if(a<0)throw new Error('Keine gültige Antwort vom Modell. Nochmal versuchen.');return JSON.parse(c.slice(a,b+1))}
@@ -198,7 +200,8 @@ function pickCats(n,exclude=[]){
   return on.sort((a,b)=>sc(b)-sc(a)).slice(0,Math.max(0,n));
 }
 function candidates(){
-  const c=Object.entries(S.tech).filter(([,x])=>x.relearn).map(([id,x])=>({id,name:x.titel,mod:x.mod,re:1}));
+  const c=Object.entries(S.tech).filter(([,x])=>x.relearn).map(([id,x])=>({id,name:x.titel,mod:x.mod,pfad:x.pfad,re:1}));
+  S.paths.forEach(p=>{let k=0;(p.bausteine||[]).forEach((b,i)=>{const id='pfad:'+p.id+':'+i;if(!S.tech[id]&&k<4){c.push({id,name:b.titel+(b.inhalt?' ('+b.inhalt+')':''),mod:'pfad',pfad:p.id});k++}})});
   for(const [m,M] of Object.entries(MOD)){let k=0;M.l.forEach((n,i)=>{if(!S.tech[m+':'+i]&&k<4){c.push({id:m+':'+i,name:n,mod:m});k++}})}
   return c;
 }
@@ -209,16 +212,18 @@ async function makeLesson(){
 Erkläre so, wie es zu seinem Lernerprofil passt. Keine Oberfläche: auch Feinheiten, Profi-Tricks und typische Fehler, die die meisten nicht kennen. Antworte ausschließlich mit gültigem JSON auf Deutsch.`;
   const user=`Wähle aus diesen Kandidaten genau EINE Lektion, die ${S.set.name} jetzt den größten Fortschritt bringt. Berücksichtige Alltagsnutzen, seine Ziele, Schwächen, Fehlermuster und Abwechslung zu den letzten Lektionen (${last}). ${PRIO}
 Die Liste ist nur ein Startpunkt, kein Lehrplan. Wenn eine Technik, Methode oder ein Wissensbaustein außerhalb der Liste ihm gerade mehr bringt (aus Psychologie, Kommunikation, Verhandlung, Denken, Lernen, Wissenschaft, Alltag), wähle stattdessen "wahl":"neu" und gib bei "modul" die passende Modul-id an. Nichts wiederholen, was er schon gelernt hat (${Object.values(S.tech).map(x=>x.titel).slice(-80).join('; ')||'nichts'}).
+Bausteine aus seinen eigenen Lernpfaden (LERNPFAD) haben Vorrang, abwechselnd mit dem Rest. Nutze echtes Expertenwissen: wie Profis (Anwälte, Ingenieure, Profiler, Verhandler, Forscher) es wirklich machen, und was die Forschung dazu sagt. Erfinde keine Quellen: Bist du bei einem Titel unsicher, nenne Forscher oder Fachgebiet, oder schreib "Praxiswissen".
 Mit [NEU ERKLÄREN] markierte Techniken hat er nicht verstanden: Diese haben Vorrang, wenn sie gerade passen, und müssen komplett anders erklärt werden (andere Analogie, anderer Zugang, praktischer).
 Kandidaten:
-${c.map(x=>`${x.id} | ${MOD[x.mod].n} | ${x.name}${x.re?' [NEU ERKLÄREN]':''}`).join('\n')}
+${c.map(x=>`${x.id} | ${modName(x)} | ${x.name}${x.re?' [NEU ERKLÄREN]':''}`).join('\n')}
 
 Format:
-{"wahl":"id aus der Liste oder neu","modul":"nur bei neu: Modul-id (${Object.keys(MOD).join(', ')})","grund":"warum gerade jetzt, 1 Satz","titel":"...","kern":"die Technik in 1-2 Sätzen","erklaerung":"wie und warum sie wirkt, 4-7 Sätze","beispiel":"konkretes, realistisches Beispiel, gern als kurzer Dialog","erkennen":"woran man sie beim Gegenüber erkennt bzw. wann man sie braucht","kontern":"wörtliche Formulierungen: Konter bzw. saubere eigene Anwendung","profi":"was die meisten nicht wissen: Feinheiten, Kombinationen, typische Fehler","uebung":"offene Anwendungsaufgabe, in der er die Technik selbst einsetzt oder erkennt und kontert (ohne Lösung)","kriterien":"woran eine sehr gute Lösung erkennbar ist"}${c.some(x=>x.mod==='eristik')?'\nBei Schopenhauer-Kunstgriffen die Nummer im Titel nennen.':''}`;
+{"wahl":"id aus der Liste oder neu","modul":"nur bei neu: Modul-id (${Object.keys(MOD).join(', ')})","grund":"warum gerade jetzt, 1 Satz","titel":"...","kern":"die Technik in 1-2 Sätzen","erklaerung":"wie und warum sie wirkt, 4-7 Sätze","beispiel":"konkretes, realistisches Beispiel, gern als kurzer Dialog","erkennen":"woran man sie beim Gegenüber erkennt bzw. wann man sie braucht","kontern":"wörtliche Formulierungen: Konter bzw. saubere eigene Anwendung","profi":"was die meisten nicht wissen: Feinheiten, Kombinationen, typische Fehler, wie echte Profis es machen","quelle":"Herkunft: Studie, Forscher, Buch oder Praxis-Standard","evidenz":"stark | mittel | schwach | umstritten, plus 1 Halbsatz warum","uebung":"offene Anwendungsaufgabe, in der er die Technik selbst einsetzt oder erkennt und kontert (ohne Lösung)","kriterien":"woran eine sehr gute Lösung erkennbar ist"}${c.some(x=>x.mod==='eristik')?'\nBei Schopenhauer-Kunstgriffen die Nummer im Titel nennen.':''}`;
   const L=await ai(sys,user);
   let pick=c.find(x=>x.id===L.wahl);
   if(!pick&&L.wahl==='neu'&&L.titel)pick={id:'frei:'+Date.now(),name:L.titel,mod:MOD[L.modul]?L.modul:'denken'};
   if(!pick)pick=c[0];
+  if(pick.mod==='pfad')pick.pfadTitel=S.paths.find(p=>p.id===pick.pfad)?.titel;
   return{L,pick};
 }
 async function genTasks(slots,per){
@@ -263,14 +268,14 @@ async function makeDay(type){
   if(les){
     const {L,pick}=les;
     tasks.splice(nw,0,{kat:'technik',titel:L.titel,aufgabe:L.uebung,tipp:L.kontern,kriterien:L.kriterien,ans:'',grade:null,showTip:false,tech:pick.id});
-    S.tech[pick.id]={...L,name:pick.name,mod:pick.mod,d:t,box:1,due:t,relearn:false,re:pick.re?1:0};S.techN++;
+    S.tech[pick.id]={...L,name:pick.name,mod:pick.mod,pfad:pick.pfad,pfadTitel:pick.pfadTitel,d:t,box:1,due:t,relearn:false,re:pick.re?1:0};S.techN++;
   }
   if(redo)redo.redo=true;
   S.days[t]={type:review?'review':'normal',tasks,lesson:les?les.pick.id:null};save();
 }
 async function grade(i){
   const day=S.days[today()],t=day.tasks[i];
-  const sys=`Du bewertest Trainingsantworten streng, ehrlich und konkret wie ein sehr guter Mentor. Keine Floskeln, kein Lob ohne Grund, direkte Kritik, angepasst an sein Lernerprofil. Prüfe Inhalt und Logik, und bei jedem Text auch Rechtschreibung, Grammatik, Zeichensetzung, Präzision und Stil. Zeige, was ein Profi zusätzlich gesehen oder gemacht hätte.
+  const sys=`Du bewertest Trainingsantworten streng, ehrlich und konkret wie ein sehr guter Mentor. Keine Floskeln, kein Lob ohne Grund, direkte Kritik, angepasst an sein Lernerprofil. Prüfe Inhalt und Logik, und bei jedem Text auch Rechtschreibung, Grammatik, Zeichensetzung, Präzision und Stil. Zeige, was ein Profi zusätzlich gesehen oder gemacht hätte. Wo passend, miss die Antwort am Standard der Experten aus seinen Lernpfaden.
 ${prof()}
 Antworte ausschließlich mit gültigem JSON auf Deutsch.`;
   const known=Object.keys(S.err).slice(-60).join('; ')||'keine';
@@ -288,6 +293,14 @@ Antworte ausschließlich mit gültigem JSON auf Deutsch.`;
     if(t.tech&&S.tech[t.tech]){const x=S.tech[t.tech];if(g.punkte<5){x.relearn=true;x.due=today()}else if(g.punkte>=8){x.box=Math.max(x.box||1,4);x.due=addDays(today(),14)}}
   }
   save();maybeCycle();
+}
+async function makePath(f){
+  const sys=`Du bist Lerndesigner und Experte für Expertise-Forschung (Deliberate Practice, Transfer, Lernpsychologie). Du analysierst, was echte Spitzenkönner in einem Gebiet konkret anders und besser machen, und baust daraus einen Lernpfad mit echtem Fachwissen aus Forschung, Fachliteratur und Praxis der Profis, nicht mit Allgemeinplätzen. Übersetze Vorbilder aus Filmen oder Serien in reale Berufe und Fähigkeiten. Trenne ehrlich, was belegt ist und was Mythos ist. Erfinde keine Quellen: Bist du bei einem Titel unsicher, nenne Forscher oder Fachgebiet. ${PRIO}
+${prof()}
+Antworte ausschließlich mit gültigem JSON auf Deutsch.`;
+  const user=`Ziel: ${f.ziel}\nVorbild bzw. so gut wie: ${f.vorbild||'nicht angegeben'}\nWofür: ${f.wofuer||'nicht angegeben'}\nWie gut, bis wann: ${f.niveau||'nicht angegeben'}\n\nFormat:\n{"titel":"kurzer Name","rolle":"reale Expertenrolle(n) als Maßstab","kern":"was diese Experten wirklich besser können, 2-3 Sätze","faehigkeiten":["konkrete Teilfähigkeiten"],"bausteine":[{"titel":"Technik, Methode oder Wissensbaustein","inhalt":"1 Satz","quelle":"Studie, Forscher, Buch oder Praxis","evidenz":"stark|mittel|schwach|umstritten"}],"mythen":["was oft behauptet wird, aber nicht stimmt"],"uebungen":["Übungsformen, die nachweislich wirken"],"meilensteine":[{"wann":"z. B. nach 4 Wochen","messbar":"woran erkennbar"}]}\n15 bis 25 Bausteine, vom Fundament zum Profi-Niveau sortiert.`;
+  const p=await ai(sys,user);
+  S.paths.push({...p,id:Date.now().toString(36),ziel:f.ziel,vorbild:f.vorbild,d:today()});save();
 }
 async function makePlan(){
   const testDay=Object.entries(S.days).filter(([,d])=>d.type==='test').pop();
@@ -400,7 +413,8 @@ function vHeute(){
     head('Heute',new Date().toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long'}));
     const N={10:4,20:6,30:8}[S.set.min];const sun=new Date().getDay()===0;
     return `${cyc()}${S.set.key?'':'<div class="card"><b>Noch kein API-Key.</b><p class="mut">Unter Einstellungen einen kostenlosen Groq-Key eintragen.</p></div>'}
-    ${S.plan?'':`<div class="card lesson"><div class="kat">Start</div><h2>Erst der Einstufungstest</h2><p>Einmal alle Bereiche, ca. 35–45 Minuten. Danach erstellt die KI deine Einschätzung und den Lernplan.</p><div class="row"><button class="p" data-go="plan">Zum Test</button></div></div>`}
+    ${S.paths.length?'':`<div class="card lesson"><div class="kat">Schritt 1</div><h2>Was ist dein Ziel?</h2><p>Sag der KI, was du können willst und wie gut. Sie baut daraus Lernpfade mit echtem Profiwissen.</p><div class="row"><button class="p" data-go="plan">Ziele festlegen</button></div></div>`}
+    ${S.plan?'':`<div class="card lesson"><div class="kat">Schritt 2</div><h2>Einstufungstest</h2><p>Einmal alle Bereiche, ca. 35–45 Minuten. Danach erstellt die KI deine Einschätzung und den Lernplan.</p><div class="row"><button class="p" data-go="plan">Zum Test</button></div></div>`}
     <div class="card"><h2>${sun?'Wochenwiederholung':'Training für heute'}</h2><p class="mut">${N} Aufgaben, ca. ${S.set.min} Minuten. ${sun?'Sonntag: die Techniken der Woche in neuen Situationen.':'Die KI wählt die Lektion mit dem größten Nutzen für dich, trainiert gezielt deinen häufigsten Fehler und füllt mit den Bereichen auf, die gerade am meisten bringen.'}</p>
     <div class="row">${btn('make','Training erstellen','p','make')}</div><div class="err" id="err"></div></div>`;
   }
@@ -413,13 +427,13 @@ function vHeute(){
    `<div class="card"><div class="row">${btn('remake','Neue Aufgaben für heute','','make')}</div><div class="err" id="err"></div></div>`;
 }
 function lessonCard(L,open){
-  return `<div class="card lesson"><div class="kat">${L.re?'Neu erklärt · ':'Technik des Tages · '}${esc(MOD[L.mod]?.n)}</div><h2>${esc(L.titel)}</h2>${L.grund?`<p class="mut">Warum jetzt: ${esc(L.grund)}</p>`:''}<div class="txt"><b>${esc(L.kern)}</b></div>
+  return `<div class="card lesson"><div class="kat">${L.re?'Neu erklärt · ':'Technik des Tages · '}${esc(L.mod==='pfad'?'Lernpfad: '+(L.pfadTitel||''):MOD[L.mod]?.n)}</div><h2>${esc(L.titel)}</h2>${L.grund?`<p class="mut">Warum jetzt: ${esc(L.grund)}</p>`:''}<div class="txt"><b>${esc(L.kern)}</b></div>
   <details ${open?'open':''}><summary>Lektion</summary>
   <h3>Wie es wirkt</h3><div class="txt">${esc(L.erklaerung)}</div>
   <h3>Beispiel</h3><div class="txt">${esc(L.beispiel)}</div>
   <h3>Erkennen</h3><div class="txt">${esc(L.erkennen)}</div>
   <h3>Kontern / Anwenden</h3><div class="txt">${esc(L.kontern)}</div>
-  <h3>Was die meisten nicht wissen</h3><div class="txt">${esc(L.profi)}</div></details></div>`;
+  <h3>Was die meisten nicht wissen</h3><div class="txt">${esc(L.profi)}</div>${L.quelle?`<h3>Quelle & Evidenz</h3><div class="txt">${esc(L.quelle)}${L.evidenz?'\nBeleglage: '+esc(L.evidenz):''}</div>`:''}</details></div>`;
 }
 function card(t,i){
   const g=t.grade,b=busy['g'+i];
@@ -451,7 +465,14 @@ function vPlan(){
   const tdone=testDay?testDay[1].tasks.filter(t=>t.grade).length:0,ttot=testDay?testDay[1].tasks.length:0;
   const learned=Object.keys(S.tech).filter(k=>!k.startsWith('frei:')).length,total=Object.values(MOD).reduce((a,m)=>a+m.l.length,0);
   const errs=Object.entries(S.err).sort((a,b)=>(a[1].done-b[1].done)||b[1].n-a[1].n);
-  let h=`<div class="card"><h2>Was ich erreichen will</h2><textarea id="goals" style="min-height:150px">${esc(S.goals)}</textarea><p class="mut">Fließt in jede Aufgabe, Lektion, Bewertung und den Plan ein.</p></div>`;
+  let h=`<div class="card lesson"><h2>Meine Ziele</h2><p class="mut">Was willst du können? Die KI analysiert, was echte Profis darin können, und baut daraus einen Lernpfad mit Fachwissen, Quellen und Beleglage.</p>
+  <label for="pz">Ziel</label><input id="pz" placeholder="z. B. überzeugen und argumentieren wie ein Top-Anwalt">
+  <label for="pv">So gut wie … (Person, Beruf oder Vorbild)</label><input id="pv" placeholder="z. B. Strafverteidiger, FBI-Profiler, Ingenieur wie Tony Stark">
+  <label for="pw2x">Wofür?</label><input id="pw2x" placeholder="z. B. Diskussionen, Bewerbung, Studium, Kunden">
+  <label for="pn">Wie gut, bis wann?</label><input id="pn" placeholder="z. B. in 3 Monaten deutlich besser als jetzt">
+  <div class="row">${btn('path','Lernpfad erstellen','p','path')}</div><div class="err" id="patherr"></div>
+  ${S.paths.map((p,j)=>{const n=(p.bausteine||[]).length,dn=(p.bausteine||[]).filter((b,i)=>S.tech['pfad:'+p.id+':'+i]).length;return `<details><summary>${esc(p.titel)} · ${dn}/${n}</summary><p class="mut">Maßstab: ${esc(p.rolle)}</p><div class="txt">${esc(p.kern)}</div><h3>Fähigkeiten</h3>${li(p.faehigkeiten)}<h3>Bausteine</h3><ul>${(p.bausteine||[]).map((b,i)=>`<li>${S.tech['pfad:'+p.id+':'+i]?'✓ ':''}<b>${esc(b.titel)}</b>: ${esc(b.inhalt)} <span class="mut">(${esc(b.quelle)} · Beleglage ${esc(b.evidenz)})</span></li>`).join('')}</ul><h3>Mythen</h3>${li(p.mythen)}<h3>Was nachweislich wirkt</h3>${li(p.uebungen)}<h3>Meilensteine</h3>${li((p.meilensteine||[]).map(m=>m.wann+': '+m.messbar))}<div class="row"><button data-a="pathdel" data-j="${j}">Lernpfad entfernen</button></div></details>`}).join('')}</div>`;
+  h+=`<div class="card"><h2>Was ich insgesamt erreichen will</h2><textarea id="goals" style="min-height:150px">${esc(S.goals)}</textarea><p class="mut">Fließt in jede Aufgabe, Lektion, Bewertung und den Plan ein.</p></div>`;
   h+=`<div class="card"><h2>Einstufungstest</h2>${testDay?`<p>Test vom ${esc(testDay[0])}: ${tdone} von ${ttot} abgegeben.${testDay[0]===today()&&tdone<ttot?' Die Aufgaben stehen unter „Heute“.':''}</p>`:'<p>Eine Aufgabe pro Bereich, mittlere Schwierigkeit, ca. 3 Minuten je Aufgabe. Ersetzt das heutige Training.</p>'}
   <div class="row">${btn('test',testDay?'Neuen Test starten':'Test starten',testDay?'':'p','make')}
   ${btn('plan',P?'Plan jetzt aktualisieren':'Einschätzung & Lernplan erstellen','p','plan',((!testDay||tdone<Math.ceil(ttot*.6))&&S.res.filter(r=>!r.test).length<15)?'disabled':'')}</div>
@@ -623,6 +644,8 @@ $('v').addEventListener('click',async e=>{
   if(a==='make'||a==='remake'){if(a==='remake'&&!confirm('Heutige Aufgaben ersetzen? Gezählte Ergebnisse bleiben.'))return;await run('make',()=>makeDay('normal'))}
   if(a==='test'){if(S.days[today()]&&!confirm('Heutiges Training durch den Einstufungstest ersetzen?'))return;if(await run('make',()=>makeDay('test')))go('heute')}
   if(a==='plan')await run('plan',makePlan);
+  if(a==='path'){const f={ziel:$('pz').value.trim(),vorbild:$('pv').value.trim(),wofuer:$('pw2x').value.trim(),niveau:$('pn').value.trim()};if(!f.ziel)return showErr('patherr',new Error('Ziel eingeben.'));await run('path',()=>makePath(f),'patherr')}
+  if(a==='pathdel'){if(!confirm('Lernpfad entfernen? Gelernte Lektionen bleiben.'))return;S.paths.splice(+b.dataset.j,1);save();render()}
   if(a==='prof')await run('prof',updateProfile,'perr');
   if(a==='tip'){S.days[today()].tasks[i].showTip=true;save();render();$('c'+i)?.scrollIntoView({block:'nearest'})}
   if(a==='ask'){const t=S.days[today()].tasks[i];S.ctx={titel:t.wort||t.titel,aufgabe:t.aufgabe+(t.grade?`\n(Bereits abgegeben, Bewertung ${t.grade.punkte}/10: ${t.grade.besser})`:'')};coachMode='frage';save();go('coach');$('cin')?.focus()}
