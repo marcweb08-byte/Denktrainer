@@ -167,7 +167,8 @@ const prof=()=>`Nutzer: ${S.set.name}, ${S.set.about}\nZiele: ${S.goals}${pathCt
 /* ================= KI ================= */
 function fixJ(t){let o='',q=false,e=false;for(const ch of t){if(q){if(e){e=false;o+=ch;continue}if(ch==='\\'){e=true;o+=ch;continue}if(ch==='"'){q=false;o+=ch;continue}if(ch==='\n'){o+='\\n';continue}if(ch==='\r')continue;if(ch==='\t'){o+='\\t';continue}o+=ch}else{if(ch==='"')q=true;o+=ch}}return o.replace(/,\s*([}\]])/g,'$1')}
 function parseJ(c){c=String(c).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```(json)?/g,'');const a=c.indexOf('{'),b=c.lastIndexOf('}');if(a<0||b<a)throw new Error('BADJSON');const t=c.slice(a,b+1);try{return JSON.parse(t)}catch(e){try{return JSON.parse(fixJ(t))}catch(e2){throw new Error('BADJSON')}}}
-const VER='14';
+const VER='15';
+const GMODELS=['gemini-flash-lite-latest','gemini-3.1-flash-lite','gemini-3.5-flash-lite','gemini-2.5-flash-lite','gemini-flash-latest'];
 let lastCall=0;
 async function ai(sys,msgs,json=true,retry=false){
   const s=S.set;
@@ -179,18 +180,20 @@ async function ai(sys,msgs,json=true,retry=false){
   if((/gpt-oss/.test(s.model)&&/groq/.test(s.base))||/googleapis/.test(s.base))body.reasoning_effort='low';
   if(/googleapis/.test(s.base)){const w=lastCall+7000-Date.now();if(w>0)await sleep(w)}lastCall=Date.now();
   const go=()=>{const ac=new AbortController();const to=setTimeout(()=>ac.abort(),90000);return fetch(s.base.replace(/\/$/,'')+'/chat/completions',{signal:ac.signal,method:'POST',referrerPolicy:'no-referrer',headers:{'Content-Type':'application/json',Authorization:'Bearer '+s.key},body:JSON.stringify(body)}).finally(()=>clearTimeout(to))};
-  let r;
+  let r;const gTried=new Set();
   for(let tries=0;;tries++){
     try{r=await go()}catch(e){if(e.name==='AbortError'&&tries<1){continue}throw new Error(e.name==='AbortError'?'Die KI hat zu lange nicht geantwortet. Nochmal versuchen oder ein anderes Modell wählen.':'Keine Verbindung zur KI. Internet oder Adresse prüfen.')}
     if(r.status===400&&body.response_format){delete body.response_format;delete body.reasoning_effort;continue}
     if(r.status===429){const t=await r.clone().text();
       if(/PerDay|per day|daily/i.test(t))throw new Error('Tageslimit für dieses Modell erreicht. Ab 9 Uhr geht es wieder, oder unter Einstellungen ein anderes Modell bzw. Groq wählen.');
       if(tries<2){const m=t.match(/retryDelay"?:\s*"?(\d+)/);const ra=+(m&&m[1])||+r.headers.get('retry-after')||15;await sleep(Math.min(60,ra)*1000+500);continue}}
-    if([500,502,503,504].includes(r.status)&&tries<2){
-      if(/googleapis/.test(s.base)&&body.model!=='gemini-flash-lite-latest')body.model='gemini-flash-lite-latest';
-      await sleep([3000,8000][tries]);continue}
+    if(/googleapis/.test(s.base)&&[404,500,502,503,504].includes(r.status)){
+      gTried.add(body.model);const nx=GMODELS.find(m=>!gTried.has(m));
+      if(nx){body.model=nx;await sleep(1500);continue}}
+    if([500,502,503,504].includes(r.status)&&tries<2){await sleep([3000,8000][tries]);continue}
     break;
   }
+  if(r.ok&&/googleapis/.test(s.base)&&body.model!==s.model){S.set.model=body.model;save()}
   if(r.status===429)throw new Error('Limit der Gratis-API erreicht. Eine Minute warten und nochmal versuchen.');
   if([500,502,503,504].includes(r.status))throw new Error('Die KI ist gerade überlastet (Fehler '+r.status+'). In ein paar Minuten nochmal versuchen.');
   if(!r.ok)throw new Error('Fehler '+r.status+': '+(await r.text()).slice(0,240));
