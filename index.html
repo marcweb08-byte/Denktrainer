@@ -175,9 +175,13 @@ async function ai(sys,msgs,json=true){
     try{r=await go()}catch(e){throw new Error('Keine Verbindung zur KI. Internet oder Adresse prüfen.')}
     if(r.status===400&&body.response_format){delete body.response_format;delete body.reasoning_effort;continue}
     if(r.status===429&&tries<2){const ra=+r.headers.get('retry-after')||15;await sleep(Math.min(40,ra)*1000+500);continue}
+    if([500,502,503,504].includes(r.status)&&tries<4){
+      if(tries===2&&/googleapis/.test(s.base)&&body.model!=='gemini-flash-lite-latest')body.model='gemini-flash-lite-latest';
+      await sleep([2000,5000,4000,8000][tries]);continue}
     break;
   }
   if(r.status===429)throw new Error('Limit der Gratis-API erreicht. Eine Minute warten und nochmal versuchen.');
+  if([500,502,503,504].includes(r.status))throw new Error('Die KI ist gerade überlastet (Fehler '+r.status+'). In ein paar Minuten nochmal versuchen.');
   if(!r.ok)throw new Error('Fehler '+r.status+': '+(await r.text()).slice(0,240));
   const c=(await r.json()).choices?.[0]?.message?.content||'';
   return json?parseJ(c):c.replace(/<think>[\s\S]*?<\/think>/g,'').trim();
@@ -450,7 +454,7 @@ function vPlan(){
   let h=`<div class="card"><h2>Was ich erreichen will</h2><textarea id="goals" style="min-height:150px">${esc(S.goals)}</textarea><p class="mut">Fließt in jede Aufgabe, Lektion, Bewertung und den Plan ein.</p></div>`;
   h+=`<div class="card"><h2>Einstufungstest</h2>${testDay?`<p>Test vom ${esc(testDay[0])}: ${tdone} von ${ttot} abgegeben.${testDay[0]===today()&&tdone<ttot?' Die Aufgaben stehen unter „Heute“.':''}</p>`:'<p>Eine Aufgabe pro Bereich, mittlere Schwierigkeit, ca. 3 Minuten je Aufgabe. Ersetzt das heutige Training.</p>'}
   <div class="row">${btn('test',testDay?'Neuen Test starten':'Test starten',testDay?'':'p','make')}
-  ${btn('plan',P?'Plan jetzt aktualisieren':'Einschätzung & Lernplan erstellen','p','plan',(tdone<Math.ceil(ttot*.6)&&S.res.filter(r=>!r.test).length<15)?'disabled':'')}</div>
+  ${btn('plan',P?'Plan jetzt aktualisieren':'Einschätzung & Lernplan erstellen','p','plan',((!testDay||tdone<Math.ceil(ttot*.6))&&S.res.filter(r=>!r.test).length<15)?'disabled':'')}</div>
   <p class="mut">Nach dem Plan läuft alle 7 Tage automatisch eine Auswertung, die Profil, Fokus und Plan anpasst.</p><div class="err" id="err"></div></div>`;
   h+=`<div class="card"><h2>Wie die KI dich sieht</h2><p class="mut">Lernerprofil, wird nach Lernsitzungen und wöchentlich aktualisiert. Du kannst es korrigieren.</p><textarea id="profil" style="min-height:120px" placeholder="Entsteht nach den ersten Aufgaben und Lernsitzungen.">${esc(S.profil)}</textarea>
   <div class="row">${btn('prof','Profil jetzt aktualisieren','','prof',S.res.length<3?'disabled':'')}</div><div class="err" id="perr"></div></div>`;
