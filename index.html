@@ -173,9 +173,10 @@ const prof=()=>`Nutzer: ${S.set.name}, ${S.set.about}\nZiele: ${S.goals}${pathCt
 /* ================= KI ================= */
 function fixJ(t){let o='',q=false,e=false;for(const ch of t){if(q){if(e){e=false;o+=ch;continue}if(ch==='\\'){e=true;o+=ch;continue}if(ch==='"'){q=false;o+=ch;continue}if(ch==='\n'){o+='\\n';continue}if(ch==='\r')continue;if(ch==='\t'){o+='\\t';continue}o+=ch}else{if(ch==='"')q=true;o+=ch}}return o.replace(/,\s*([}\]])/g,'$1')}
 function parseJ(c){c=String(c).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```(json)?/g,'');const ia=c.indexOf('['),io=c.indexOf('{');const arr=ia>=0&&(io<0||ia<io);const a=arr?ia:io,b=arr?c.lastIndexOf(']'):c.lastIndexOf('}');if(a<0||b<a)throw new Error('BADJSON');const t=c.slice(a,b+1);try{return JSON.parse(t)}catch(e){try{return JSON.parse(fixJ(t))}catch(e2){throw new Error('BADJSON')}}}
-const VER='19';
+const VER='20';
 const GMODELS=['gemini-flash-lite-latest','gemini-3.1-flash-lite','gemini-3.5-flash-lite','gemini-2.5-flash-lite','gemini-flash-latest'];
 let lastCall=0;
+const waitVisible=()=>document.hidden?new Promise(r=>{const f=()=>{if(!document.hidden){document.removeEventListener('visibilitychange',f);r()}};document.addEventListener('visibilitychange',f)}):Promise.resolve();
 async function ai(sys,msgs,json=true,retry=false){
   const s=S.set;
   if(!s.base||!s.model)throw new Error('API-Adresse und Modell unter Einstellungen eintragen.');
@@ -189,7 +190,9 @@ async function ai(sys,msgs,json=true,retry=false){
   const go=()=>{const ac=new AbortController();const to=setTimeout(()=>ac.abort(),90000);return fetch(s.base.replace(/\/$/,'')+'/chat/completions',{signal:ac.signal,method:'POST',referrerPolicy:'no-referrer',headers:{'Content-Type':'application/json',Authorization:'Bearer '+s.key},body:JSON.stringify(body)}).finally(()=>clearTimeout(to))};
   let r;const gTried=new Set();
   for(let tries=0;;tries++){
-    try{r=await go()}catch(e){if(e.name==='AbortError'&&tries<1){continue}throw new Error(e.name==='AbortError'?'Die KI hat zu lange nicht geantwortet. Nochmal versuchen oder ein anderes Modell wählen.':'Keine Verbindung zur KI. Internet oder Adresse prüfen.')}
+    try{r=await go()}catch(e){
+      if(tries<3){await waitVisible();await sleep(e.name==='AbortError'?500:3000);continue}
+      throw new Error(e.name==='AbortError'?'Die KI hat zu lange nicht geantwortet. Nochmal versuchen oder ein anderes Modell wählen.':'Verbindung abgebrochen. Lass die App beim Erstellen offen und den Bildschirm an, dann nochmal tippen.')}
     if(r.status===400&&body.response_format){delete body.response_format;delete body.reasoning_effort;continue}
     if(r.status===429){const t=await r.clone().text();
       if(/PerDay|per day|daily/i.test(t))throw new Error('Tageslimit für dieses Modell erreicht. Ab 9 Uhr geht es wieder, oder unter Einstellungen ein anderes Modell bzw. Groq wählen.');
@@ -763,7 +766,8 @@ function render(){
 }
 const showErr=(id,e)=>{const el=$(id);if(el)el.textContent=e.message||String(e)};
 const go=v=>{if(locked)return;view=v;render();scrollTo(0,0)};
-async function run(key,fn,errId='err'){busy[key]=1;progK=key;prog[key]='';render();try{await fn();busy[key]=0;render();return true}catch(e){busy[key]=0;render();showErr(errId,e);return false}}
+let wl=null;async function wake(on){try{if(on&&'wakeLock'in navigator&&!wl)wl=await navigator.wakeLock.request('screen');if(!on&&wl){wl.release();wl=null}}catch(e){}}
+async function run(key,fn,errId='err'){busy[key]=1;progK=key;prog[key]='';wake(true);render();try{await fn();busy[key]=0;if(!Object.values(busy).some(Boolean))wake(false);render();return true}catch(e){busy[key]=0;wake(false);render();showErr(errId,e);return false}}
 
 /* ================= Events ================= */
 document.body.addEventListener('click',e=>{const b=e.target.closest('[data-go],nav button');if(b)go(b.dataset.go||b.dataset.v)});
