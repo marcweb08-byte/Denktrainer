@@ -133,7 +133,10 @@ const enc=new TextEncoder(),dec=new TextDecoder();
 const b64=buf=>{const u=new Uint8Array(buf);let s='';for(let i=0;i<u.length;i+=32768)s+=String.fromCharCode.apply(null,u.subarray(i,i+32768));return btoa(s)};
 const unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 async function derive(pass,salt){const base=await crypto.subtle.importKey('raw',enc.encode(pass),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:310000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
-function merge(L){const s=Object.assign(structuredClone(DEF),L||{});s.set=Object.assign(structuredClone(DEF.set),L?.set);s.set.cats=Object.assign(structuredClone(DEF.set.cats),L?.set?.cats);if(!PRESETS[s.set.prov])s.set.prov='eigen';return s}
+function merge(L){const s=Object.assign(structuredClone(DEF),L||{});s.set=Object.assign(structuredClone(DEF.set),L?.set);s.set.cats=Object.assign(structuredClone(DEF.set.cats),L?.set?.cats);if(!PRESETS[s.set.prov])s.set.prov='eigen';
+  const bad=(s.paths||[]).filter(p=>!p.titel||!Array.isArray(p.bausteine)||p.bausteine.length<3);
+  if(bad.length){s.goalQ=s.goalQ||[];bad.forEach(p=>{if(p.ziel&&!s.goalQ.some(g=>g.ziel===p.ziel))s.goalQ.push({ziel:p.ziel,vorbild:p.vorbild||'',wofuer:'',niveau:''})});s.paths=s.paths.filter(p=>!bad.includes(p))}
+  return s}
 let S=structuredClone(DEF),K=null,SALT=null,locked=false,st=null,hiddenAt=0;
 async function saveNow(){
   if(locked)return;
@@ -173,7 +176,7 @@ const prof=()=>`Nutzer: ${S.set.name}, ${S.set.about}\nZiele: ${S.goals}${pathCt
 /* ================= KI ================= */
 function fixJ(t){let o='',q=false,e=false;for(const ch of t){if(q){if(e){e=false;o+=ch;continue}if(ch==='\\'){e=true;o+=ch;continue}if(ch==='"'){q=false;o+=ch;continue}if(ch==='\n'){o+='\\n';continue}if(ch==='\r')continue;if(ch==='\t'){o+='\\t';continue}o+=ch}else{if(ch==='"')q=true;o+=ch}}return o.replace(/,\s*([}\]])/g,'$1')}
 function parseJ(c){c=String(c).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```(json)?/g,'');const ia=c.indexOf('['),io=c.indexOf('{');const arr=ia>=0&&(io<0||ia<io);const a=arr?ia:io,b=arr?c.lastIndexOf(']'):c.lastIndexOf('}');if(a<0||b<a)throw new Error('BADJSON');const t=c.slice(a,b+1);try{return JSON.parse(t)}catch(e){try{return JSON.parse(fixJ(t))}catch(e2){throw new Error('BADJSON')}}}
-const VER='22';
+const VER='23';
 const GMODELS=['gemini-flash-lite-latest','gemini-3.1-flash-lite','gemini-3.5-flash-lite','gemini-2.5-flash-lite','gemini-flash-latest'];
 let lastCall=0;
 const waitVisible=()=>document.hidden?new Promise(r=>{const f=()=>{if(!document.hidden){document.removeEventListener('visibilitychange',f);r()}};document.addEventListener('visibilitychange',f)}):Promise.resolve();
@@ -398,7 +401,10 @@ async function makePathCore(f){
 ${prof()}
 Antworte ausschließlich mit gültigem JSON auf Deutsch.`;
   const user=`Beziehe dich auch auf das, was in echten Studien- und Ausbildungsgängen gelehrt wird (Modulhandbücher deutscher und internationaler Hochschulen, Polizei-/Fachhochschulen, Standardlehrbücher), soweit du es sicher weißt, und kennzeichne das. ${f.material?`Recherche-Material (nutze es als Grundlage, besonders die meistzitierten Studien):\n${f.material.slice(0,9000)}\n\n`:''}Ziel: ${f.ziel}\nVorbild bzw. so gut wie: ${f.vorbild||'nicht angegeben'}\nWofür: ${f.wofuer||'nicht angegeben'}\nWie gut, bis wann: ${f.niveau||'nicht angegeben'}\n\nFormat:\n{"titel":"kurzer Name","rolle":"reale Expertenrolle(n) als Maßstab","kern":"was diese Experten wirklich besser können, 2-3 Sätze","faehigkeiten":["konkrete Teilfähigkeiten"],"bausteine":[{"titel":"Technik, Methode oder Wissensbaustein","inhalt":"1 Satz","quelle":"Studie, Forscher, Buch oder Praxis","evidenz":"stark|mittel|schwach|umstritten"}],"mythen":["was oft behauptet wird, aber nicht stimmt"],"uebungen":["Übungsformen, die nachweislich wirken"],"meilensteine":[{"wann":"z. B. nach 4 Wochen","messbar":"woran erkennbar"}],"bereiche":["2-4 Bereich-ids, die für dieses Ziel am wichtigsten sind, aus: ${DAILY.join(', ')}"]}\n12 bis 18 Bausteine, vom Fundament zum Profi-Niveau sortiert. Alle Texte kurz halten.`;
-  const p=await ai(sys,user);
+  let p=await ai(sys,user);if(Array.isArray(p))p=p[0]||{};
+  const okP=x=>x&&x.titel&&Array.isArray(x.bausteine)&&x.bausteine.length>=3;
+  if(!okP(p)){p=await ai(sys,user+'\nWICHTIG: Gib genau EIN Objekt mit titel, rolle, kern und mindestens 12 bausteinen zurück.');if(Array.isArray(p))p=p[0]||{}}
+  if(!okP(p))throw new Error('Gemini hat einen unvollständigen Lernpfad geliefert. Das Ziel bleibt gespeichert, bitte nochmal tippen.');
   const pid=Date.now().toString(36);
   if(S.plan){const ks=(p.bereiche||[]).filter(k=>DAILY.includes(k)&&S.set.cats[k]!==false);const need=ks.filter(k=>S.res.filter(r=>r.cat===k).length<2).slice(0,3);
     if(need.length)S.mini={path:pid,titel:p.titel,kats:need,faeh:(p.faehigkeiten||[]).slice(0,4).join('; ')};else S.planDirty=true}
